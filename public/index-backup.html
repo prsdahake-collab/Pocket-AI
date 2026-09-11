@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Pocket AI</title>
+
+  <!-- Puter online AI service -->
+  <script src="https://js.puter.com/v2/"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      background: #0f1014;
+      color: white;
+      font-family: Arial, sans-serif;
+      min-height: 100vh;
+    }
+
+    header {
+      height: 78px;
+      background: #191a20;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 36px;
+      font-weight: bold;
+      border-bottom: 1px solid #25262d;
+    }
+
+    .robot {
+      margin-right: 10px;
+    }
+
+    #chat {
+      padding: 28px 24px 120px 24px;
+      max-width: 900px;
+      margin: auto;
+    }
+
+    .message {
+      padding: 18px 22px;
+      margin: 14px 0;
+      border-radius: 22px;
+      font-size: 20px;
+      line-height: 1.5;
+      word-wrap: break-word;
+      white-space: pre-wrap;
+    }
+
+    .message.ai {
+      background: #24262d;
+      margin-right: 10%;
+    }
+
+    .message.user {
+      background: #3478e5;
+      margin-left: 10%;
+    }
+
+    .welcome {
+      background: #24262d;
+      padding: 28px;
+      border-radius: 22px;
+      font-size: 22px;
+      margin-bottom: 24px;
+      text-align: center;
+    }
+
+    #inputArea {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #191a20;
+      padding: 14px 18px;
+      display: flex;
+      gap: 12px;
+      border-top: 1px solid #25262d;
+    }
+
+    #input {
+      flex: 1;
+      min-width: 0;
+      border: none;
+      outline: none;
+      border-radius: 35px;
+      padding: 18px 22px;
+      font-size: 20px;
+      background: white;
+      color: #222;
+    }
+
+    #send {
+      border: none;
+      border-radius: 35px;
+      padding: 0 30px;
+      font-size: 20px;
+      background: #3478e5;
+      color: white;
+      cursor: pointer;
+    }
+
+    #send:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    @media (max-width: 600px) {
+      header {
+        font-size: 30px;
+        height: 78px;
+      }
+
+      #chat {
+        padding: 24px 18px 110px 18px;
+      }
+
+      .message {
+        font-size: 19px;
+      }
+
+      .message.ai {
+        margin-right: 4%;
+      }
+
+      .message.user {
+        margin-left: 4%;
+      }
+
+      #inputArea {
+        padding: 12px 15px;
+      }
+
+      #input {
+        font-size: 18px;
+        padding: 16px 18px;
+      }
+
+      #send {
+        padding: 0 24px;
+        font-size: 18px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <header>
+    <span class="robot">🤖</span>
+    <span>Pocket AI</span>
+  </header>
+
+  <div id="chat">
+
+    <div class="welcome">
+      Hello! I'm Pocket AI. Ask me anything.
+    </div>
+
+  </div>
+
+  <div id="inputArea">
+    <input
+      id="input"
+      type="text"
+      placeholder="Message Pocket AI..."
+      autocomplete="off"
+    >
+
+    <button id="send">Send</button>
+  </div>
+
+  <script>
+
+    const chat = document.getElementById("chat");
+    const input = document.getElementById("input");
+    const send = document.getElementById("send");
+
+
+    /*
+      ============================================================
+      POCKET AI CREATOR
+      ============================================================
+    */
+
+    const CREATOR_NAME = "Paras Dahake";
+
+
+    /*
+      ============================================================
+      ADD MESSAGE TO CHAT
+      ============================================================
+    */
+
+    function addMessage(text, type) {
+
+      const div = document.createElement("div");
+
+      div.className = "message " + type;
+
+      div.textContent = text;
+
+      chat.appendChild(div);
+
+      window.scrollTo(
+        0,
+        document.body.scrollHeight
+      );
+
+      return div;
+    }
+
+
+    /*
+      ============================================================
+      CHECK CREATOR / DEVELOPER QUESTIONS
+      ============================================================
+    */
+
+    function isCreatorQuestion(message) {
+
+      const text = message.toLowerCase().trim();
+
+      const creatorPatterns = [
+
+        "who created you",
+        "who developed you",
+        "who made you",
+        "who built you",
+        "who is your creator",
+        "who is your developer",
+        "who is your maker",
+
+        "who created pocket ai",
+        "who developed pocket ai",
+        "who made pocket ai",
+        "who built pocket ai",
+        "who is the creator of pocket ai",
+        "who is the developer of pocket ai",
+
+        "who created this ai",
+        "who developed this ai",
+        "who made this ai",
+        "who built this ai",
+
+        "who is behind pocket ai"
+      ];
+
+      return creatorPatterns.some(pattern =>
+        text.includes(pattern)
+      );
+    }
+
+
+    /*
+      ============================================================
+      ASK POCKET AI
+      ============================================================
+    */
+
+    async function askAI() {
+
+      const message = input.value.trim();
+
+      if (!message) {
+        return;
+      }
+
+
+      /*
+        Show user's message
+      */
+
+      addMessage(message, "user");
+
+      input.value = "";
+
+      send.disabled = true;
+
+
+      /*
+        ==========================================================
+        CREATOR RESPONSE
+        ==========================================================
+      */
+
+      if (isCreatorQuestion(message)) {
+
+        addMessage(
+          "I am Pocket AI. I was created and developed by " +
+          CREATOR_NAME +
+          ".",
+          "ai"
+        );
+
+        send.disabled = false;
+
+        input.focus();
+
+        return;
+      }
+
+
+      /*
+        ==========================================================
+        LOADING MESSAGE
+        ==========================================================
+      */
+
+      const loading = addMessage(
+        "Thinking...",
+        "ai"
+      );
+
+
+      /*
+        ==========================================================
+        ONLINE AI
+        ==========================================================
+      */
+
+      try {
+
+        const response = await puter.ai.chat(
+          message,
+          {
+            model: "gpt-5.6-luna"
+          }
+        );
+
+
+        let answer = "";
+
+
+        /*
+          Handle normal Puter response
+        */
+
+        if (
+          response &&
+          response.message &&
+          response.message.content
+        ) {
+
+          answer = response.message.content;
+
+        }
+
+        /*
+          Handle string response
+        */
+
+        else if (
+          typeof response === "string"
+        ) {
+
+          answer = response;
+
+        }
+
+        /*
+          Handle other response formats
+        */
+
+        else {
+
+          answer = JSON.stringify(
+            response,
+            null,
+            2
+          );
+
+        }
+
+
+        /*
+          Make sure something is displayed
+        */
+
+        if (!answer || answer === "undefined") {
+
+          answer =
+            "I received an empty response from the online AI service.";
+
+        }
+
+
+        loading.textContent = answer;
+
+
+      } catch (error) {
+
+        console.error(
+          "Pocket AI error:",
+          error
+        );
+
+
+        loading.textContent =
+          "Sorry, Pocket AI couldn't connect to the online AI service.\n\n" +
+          (error.message || String(error));
+
+      }
+
+
+      /*
+        Re-enable Send button
+      */
+
+      send.disabled = false;
+
+      input.focus();
+
+
+      /*
+        Scroll to newest message
+      */
+
+      window.scrollTo(
+        0,
+        document.body.scrollHeight
+      );
+    }
+
+
+    /*
+      ============================================================
+      SEND BUTTON
+      ============================================================
+    */
+
+    send.addEventListener(
+      "click",
+      askAI
+    );
+
+
+    /*
+      ============================================================
+      ENTER KEY
+      ============================================================
+    */
+
+    input.addEventListener(
+      "keydown",
+      function(event) {
+
+        if (event.key === "Enter") {
+
+          event.preventDefault();
+
+          askAI();
+        }
+
+      }
+    );
+
+
+    /*
+      ============================================================
+      START WITH INPUT FOCUSED
+      ============================================================
+    */
+
+    input.focus();
+
+  </script>
+
+</body>
+</html>

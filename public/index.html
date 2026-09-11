@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Pocket AI</title>
+
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#191a20">
+
+  <script src="https://js.puter.com/v2/"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      background: #0f1014;
+      color: white;
+      font-family: Arial, sans-serif;
+      min-height: 100vh;
+    }
+
+    header {
+      height: 78px;
+      background: #191a20;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 36px;
+      font-weight: bold;
+      border-bottom: 1px solid #25262d;
+    }
+
+    .robot {
+      margin-right: 10px;
+    }
+
+    #chat {
+      padding: 28px 24px 130px 24px;
+      max-width: 900px;
+      margin: auto;
+    }
+
+    .message {
+      padding: 18px 22px;
+      margin: 14px 0;
+      border-radius: 22px;
+      font-size: 20px;
+      line-height: 1.5;
+      word-wrap: break-word;
+      white-space: pre-wrap;
+    }
+
+    .message-user {
+      background: #3478e5;
+      margin-left: 10%;
+    }
+
+    .message-ai {
+      background: #24262d;
+      margin-right: 10%;
+    }
+
+    #inputArea {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 14px;
+      background: #191a20;
+      display: flex;
+      gap: 10px;
+      z-index: 10;
+    }
+
+    #input {
+      flex: 1;
+      padding: 16px 20px;
+      border: none;
+      border-radius: 30px;
+      font-size: 20px;
+      outline: none;
+    }
+
+    #send {
+      padding: 0 28px;
+      border: none;
+      border-radius: 30px;
+      background: #3478e5;
+      color: white;
+      font-size: 20px;
+    }
+
+    #send:disabled {
+      opacity: 0.6;
+    }
+
+    #memoryButton {
+      position: fixed;
+      top: 92px;
+      left: 15px;
+      z-index: 20;
+      padding: 8px 12px;
+      border: none;
+      border-radius: 15px;
+      background: #24262d;
+      color: #ddd;
+      font-size: 13px;
+    }
+
+    #clearButton {
+      position: fixed;
+      top: 92px;
+      right: 15px;
+      z-index: 20;
+      padding: 8px 12px;
+      border: none;
+      border-radius: 15px;
+      background: #24262d;
+      color: #ddd;
+      font-size: 13px;
+    }
+
+    @media (max-width: 600px) {
+      header {
+        font-size: 32px;
+      }
+
+      .message {
+        font-size: 20px;
+      }
+
+      .message-user {
+        margin-left: 8%;
+      }
+
+      .message-ai {
+        margin-right: 8%;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+<header>
+  <span class="robot">🤖</span>
+  Pocket AI
+</header>
+
+<button id="memoryButton">🧠 Memory</button>
+
+<button id="clearButton">🗑️ Clear</button>
+
+<div id="chat"></div>
+
+<div id="inputArea">
+
+  <input
+    id="input"
+    type="text"
+    placeholder="Message Pocket AI..."
+    autocomplete="off"
+  >
+
+  <button id="send">Send</button>
+
+</div>
+
+<script>
+
+/* =========================
+   POCKET AI SETTINGS
+========================= */
+
+const CREATOR_NAME = "Paras Dahake";
+
+const CHAT_KEY = "pocket_ai_conversation";
+
+const MEMORY_KEY = "pocket_ai_long_term_memory";
+
+
+/* =========================
+   LOAD CHAT
+========================= */
+
+let conversation = [];
+
+try {
+
+  const savedChat =
+    localStorage.getItem(CHAT_KEY);
+
+  if (savedChat) {
+
+    conversation =
+      JSON.parse(savedChat);
+
+  }
+
+} catch (error) {
+
+  conversation = [];
+
+}
+
+
+/* =========================
+   LOAD LONG TERM MEMORY
+========================= */
+
+let memories = [];
+
+try {
+
+  const savedMemory =
+    localStorage.getItem(MEMORY_KEY);
+
+  if (savedMemory) {
+
+    memories =
+      JSON.parse(savedMemory);
+
+  }
+
+} catch (error) {
+
+  memories = [];
+
+}
+
+
+/* =========================
+   SAVE CHAT
+========================= */
+
+function saveConversation() {
+
+  try {
+
+    localStorage.setItem(
+      CHAT_KEY,
+      JSON.stringify(conversation)
+    );
+
+  } catch (error) {
+
+    console.log(
+      "Could not save conversation:",
+      error
+    );
+
+  }
+
+}
+
+
+/* =========================
+   SAVE LONG TERM MEMORY
+========================= */
+
+function saveMemories() {
+
+  try {
+
+    localStorage.setItem(
+      MEMORY_KEY,
+      JSON.stringify(memories)
+    );
+
+  } catch (error) {
+
+    console.log(
+      "Could not save memory:",
+      error
+    );
+
+  }
+
+}
+
+
+/* =========================
+   ADD MEMORY
+========================= */
+
+function addMemory(memory) {
+
+  memory =
+    memory.trim();
+
+  if (!memory) {
+    return;
+  }
+
+  const exists =
+    memories.some(
+      item =>
+        item.toLowerCase() ===
+        memory.toLowerCase()
+    );
+
+  if (!exists) {
+
+    memories.push(memory);
+
+    saveMemories();
+
+  }
+
+}
+
+
+/* =========================
+   DETECT MEMORY
+========================= */
+
+function learnFromMessage(message) {
+
+  const text =
+    message.trim();
+
+  const lower =
+    text.toLowerCase();
+
+
+  /* Name */
+
+  let match =
+    text.match(
+      /(?:my name is|i am|i'm)\s+([a-zA-Z][a-zA-Z ]{1,40})/i
+    );
+
+  if (match) {
+
+    let name =
+      match[1]
+        .trim()
+        .replace(/[.!?]+$/, "");
+
+    if (
+      name.length > 1 &&
+      name.length < 40
+    ) {
+
+      addMemory(
+        "The user's name is " + name + "."
+      );
+
+    }
+
+  }
+
+
+  /* Favorite color */
+
+  match =
+    text.match(
+      /(?:my favorite color is|my favourite colour is|my favourite color is|my favorite colour is)\s+([a-zA-Z]+)/i
+    );
+
+  if (match) {
+
+    addMemory(
+      "The user's favorite color is " +
+      match[1] +
+      "."
+    );
+
+  }
+
+
+  /* Likes */
+
+  match =
+    text.match(
+      /(?:i like|i love)\s+(.+)/i
+    );
+
+  if (match) {
+
+    let thing =
+      match[1]
+        .trim()
+        .replace(/[.!?]+$/, "");
+
+    if (
+      thing.length > 1 &&
+      thing.length < 100
+    ) {
+
+      addMemory(
+        "The user likes " +
+        thing +
+        "."
+      );
+
+    }
+
+  }
+
+
+  /* Dislikes */
+
+  match =
+    text.match(
+      /(?:i don't like|i do not like|i dislike)\s+(.+)/i
+    );
+
+  if (match) {
+
+    let thing =
+      match[1]
+        .trim()
+        .replace(/[.!?]+$/, "");
+
+    if (
+      thing.length > 1 &&
+      thing.length < 100
+    ) {
+
+      addMemory(
+        "The user does not like " +
+        thing +
+        "."
+      );
+
+    }
+
+  }
+
+
+  /* Favorite food */
+
+  match =
+    text.match(
+      /(?:my favorite food is|my favourite food is)\s+(.+)/i
+    );
+
+  if (match) {
+
+    let food =
+      match[1]
+        .trim()
+        .replace(/[.!?]+$/, "");
+
+    if (food.length < 100) {
+
+      addMemory(
+        "The user's favorite food is " +
+        food +
+        "."
+      );
+
+    }
+
+  }
+
+}
+
+
+/* =========================
+   MESSAGE DISPLAY
+========================= */
+
+function addMessage(text, type) {
+
+  const div =
+    document.createElement("div");
+
+  div.className =
+    "message " + type;
+
+  div.textContent =
+    text;
+
+  chat.appendChild(div);
+
+  window.scrollTo(
+    0,
+    document.body.scrollHeight
+  );
+
+  return div;
+
+}
+
+
+/* =========================
+   LOAD CHAT SCREEN
+========================= */
+
+function loadConversation() {
+
+  chat.innerHTML = "";
+
+  if (
+    conversation.length === 0
+  ) {
+
+    addMessage(
+      "Hello! I'm Pocket AI. Ask me anything.",
+      "message-ai"
+    );
+
+    return;
+
+  }
+
+
+  for (
+    const message of conversation
+  ) {
+
+    if (
+      message.role === "user"
+    ) {
+
+      addMessage(
+        message.content,
+        "message-user"
+      );
+
+    }
+
+    else if (
+      message.role === "assistant"
+    ) {
+
+      addMessage(
+        message.content,
+        "message-ai"
+      );
+
+    }
+
+  }
+
+}
+
+
+/* =========================
+   CREATOR QUESTION
+========================= */
+
+function isCreatorQuestion(message) {
+
+  const text =
+    message.toLowerCase();
+
+  const questions = [
+
+    "who created you",
+    "who made you",
+    "who developed you",
+    "who built you",
+    "who programmed you",
+    "who is your creator",
+    "who is the creator",
+    "who designed you",
+    "who invented you",
+    "who developed pocket ai",
+    "who created pocket ai",
+    "who made pocket ai",
+    "who built pocket ai"
+
+  ];
+
+  return questions.some(
+    phrase =>
+      text.includes(phrase)
+  );
+
+}
+
+
+/* =========================
+   SHOW MEMORY
+========================= */
+
+function showMemory() {
+
+  if (
+    memories.length === 0
+  ) {
+
+    alert(
+      "🧠 Pocket AI has not learned any long-term memories yet."
+    );
+
+    return;
+
+  }
+
+  alert(
+    "🧠 Pocket AI remembers:\n\n" +
+    memories
+      .map(
+        (memory, index) =>
+          (index + 1) +
+          ". " +
+          memory
+      )
+      .join("\n")
+  );
+
+}
+
+
+/* =========================
+   ASK AI
+========================= */
+
+async function askAI() {
+
+  const message =
+    input.value.trim();
+
+  if (!message) {
+    return;
+  }
+
+
+  /* Display user */
+
+  addMessage(
+    message,
+    "message-user"
+  );
+
+  input.value = "";
+
+  send.disabled = true;
+
+
+  /* Learn */
+
+  learnFromMessage(
+    message
+  );
+
+
+  /* Save user message */
+
+  conversation.push({
+
+    role: "user",
+
+    content: message
+
+  });
+
+  saveConversation();
+
+
+  /* Creator */
+
+  if (
+    isCreatorQuestion(message)
+  ) {
+
+    const answer =
+      "I am Pocket AI. I was created and developed by " +
+      CREATOR_NAME +
+      ".";
+
+    addMessage(
+      answer,
+      "message-ai"
+    );
+
+    conversation.push({
+
+      role: "assistant",
+
+      content: answer
+
+    });
+
+    saveConversation();
+
+    send.disabled = false;
+
+    input.focus();
+
+    return;
+
+  }
+
+
+  /* Thinking */
+
+  const loading =
+    addMessage(
+      "Thinking...",
+      "message-ai"
+    );
+
+
+  try {
+
+    /*
+      Build memory context
+    */
+
+    let memoryText =
+      "No long-term memories are currently saved.";
+
+    if (
+      memories.length > 0
+    ) {
+
+      memoryText =
+        memories
+          .map(
+            memory =>
+              "- " + memory
+          )
+          .join("\n");
+
+    }
+
+
+    /*
+      Keep recent conversation
+    */
+
+    const recentConversation =
+      conversation.slice(-20);
+
+
+    /*
+      Add memory as system-style context
+    */
+
+    const aiMessages = [
+
+      {
+
+        role: "user",
+
+        content:
+          "LONG-TERM MEMORY ABOUT THE USER:\n" +
+          memoryText +
+          "\n\nUse these memories when relevant. " +
+          "Do not claim to remember information that is not listed here."
+
+      },
+
+      ...recentConversation
+
+    ];
+
+
+    /*
+      Ask online AI
+    */
+
+    const response =
+      await puter.ai.chat(
+        aiMessages,
+        {
+          model: "gpt-5.6-luna"
+        }
+      );
+
+
+    let answer = "";
+
+
+    if (
+      response &&
+      response.message &&
+      response.message.content
+    ) {
+
+      answer =
+        response.message.content;
+
+    }
+
+    else if (
+      typeof response === "string"
+    ) {
+
+      answer =
+        response;
+
+    }
+
+    else {
+
+      answer =
+        JSON.stringify(response);
+
+    }
+
+
+    /*
+      Display answer
+    */
+
+    loading.textContent =
+      answer;
+
+
+    /*
+      Save answer
+    */
+
+    conversation.push({
+
+      role: "assistant",
+
+      content: answer
+
+    });
+
+    saveConversation();
+
+  }
+
+  catch (error) {
+
+    loading.textContent =
+      "Sorry, Pocket AI couldn't connect to the online AI service.\n\n" +
+      (
+        error.message ||
+        error
+      );
+
+  }
+
+
+  send.disabled = false;
+
+  input.focus();
+
+}
+
+
+/* =========================
+   CLEAR EVERYTHING
+========================= */
+
+function clearEverything() {
+
+  const confirmed =
+    confirm(
+      "Delete Pocket AI's chat history AND long-term memory?"
+    );
+
+  if (!confirmed) {
+    return;
+  }
+
+
+  localStorage.removeItem(
+    CHAT_KEY
+  );
+
+  localStorage.removeItem(
+    MEMORY_KEY
+  );
+
+
+  conversation = [];
+
+  memories = [];
+
+
+  loadConversation();
+
+}
+
+
+/* =========================
+   BUTTONS
+========================= */
+
+send.addEventListener(
+  "click",
+  askAI
+);
+
+
+input.addEventListener(
+  "keydown",
+  function(event) {
+
+    if (
+      event.key === "Enter"
+    ) {
+
+      askAI();
+
+    }
+
+  }
+);
+
+
+document
+  .getElementById("memoryButton")
+  .addEventListener(
+    "click",
+    showMemory
+  );
+
+
+document
+  .getElementById("clearButton")
+  .addEventListener(
+    "click",
+    clearEverything
+  );
+
+
+/* =========================
+   START
+========================= */
+
+loadConversation();
+
+</script>
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js")
+      .then(() => console.log("Pocket AI service worker registered"))
+      .catch(error => console.error("Service worker error:", error));
+  });
+}
+</script>
+
+</body>
+</html>

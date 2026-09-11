@@ -1,0 +1,10 @@
+{
+  "name": "Pocket AI",
+  "short_name": "Pocket AI",
+  "description": "Pocket AI — an online AI assistant",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f1014",
+  "theme_color": "#191a20",
+  "orientation": "portrait"
+}
