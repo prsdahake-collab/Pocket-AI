@@ -14,6 +14,6 @@ app.get("/api/status", (req, res) => {
   });
 });
 
-app.listen(3000, "127.0.0.1", () => {
+app.listen(process.env.PORT || 3000, "0.0.0.0", () => {
   console.log("Pocket AI running on http://127.0.0.1:3000");
 });
