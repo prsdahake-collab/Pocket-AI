@@ -760,15 +760,15 @@ async function askAI() {
     /*
       Ask online AI
     */
-
     const response =
-      await puter.ai.chat(
-        aiMessages,
-        {
-          model: "gpt-5.6-luna"
-        }
-      );
-
+  await puter.ai.chat(
+    aiMessages,
+    false,
+    {
+      model: "gpt-5.6-luna",
+      normalize: true
+    }
+  );
 
     let answer = "";
 
