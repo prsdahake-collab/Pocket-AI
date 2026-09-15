@@ -10,177 +10,190 @@
 
   <style>
     .topbar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 10px 14px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      padding:10px 14px;
     }
 
     .top-actions {
-      display: flex;
-      gap: 8px;
-      align-items: center;
+      display:flex;
+      gap:8px;
+      align-items:center;
     }
 
     #newChat,
-    #historyButton {
-      background: #272933;
-      color: white;
-      border: 0;
-      border-radius: 10px;
-      padding: 9px 12px;
-      font-size: 14px;
+    #historyButton,
+    #imageButton {
+      background:#272933;
+      color:white;
+      border:0;
+      border-radius:10px;
+      padding:9px 12px;
+      font-size:14px;
     }
 
-    #historyButton {
-      font-size: 18px;
+    #historyButton,
+    #imageButton {
+      font-size:18px;
     }
 
     .message {
-      white-space: normal;
-      line-height: 1.55;
+      white-space:normal;
+      line-height:1.55;
     }
 
     .message p {
-      margin: 0 0 10px;
+      margin:0 0 10px;
     }
 
     .message h1,
     .message h2,
     .message h3 {
-      margin: 10px 0 8px;
-      line-height: 1.25;
+      margin:10px 0 8px;
+      line-height:1.25;
     }
 
     .message h1 {
-      font-size: 24px;
+      font-size:24px;
     }
 
     .message h2 {
-      font-size: 21px;
+      font-size:21px;
     }
 
     .message h3 {
-      font-size: 18px;
+      font-size:18px;
     }
 
     .message ul,
     .message ol {
-      margin: 6px 0 10px 22px;
-      padding: 0;
+      margin:6px 0 10px 22px;
+      padding:0;
     }
 
     .message li {
-      margin: 4px 0;
+      margin:4px 0;
     }
 
     .message code {
-      background: #30323c;
-      padding: 2px 6px;
-      border-radius: 5px;
-      font-family: monospace;
+      background:#30323c;
+      padding:2px 6px;
+      border-radius:5px;
+      font-family:monospace;
     }
 
     .message pre {
-      background: #17181e;
-      border: 1px solid #30313a;
-      border-radius: 10px;
-      padding: 12px;
-      overflow-x: auto;
-      margin: 10px 0;
+      background:#17181e;
+      border:1px solid #30313a;
+      border-radius:10px;
+      padding:12px;
+      overflow-x:auto;
+      margin:10px 0;
     }
 
     .message pre code {
-      background: transparent;
-      padding: 0;
-      white-space: pre;
+      background:transparent;
+      padding:0;
+      white-space:pre;
+    }
+
+    .generated-image {
+      display:block;
+      width:100%;
+      max-width:520px;
+      border-radius:14px;
+      margin-top:8px;
+    }
+
+    .image-caption {
+      margin-top:8px;
+      opacity:.75;
+      font-size:13px;
     }
 
     .typing {
-      opacity: 0.7;
+      opacity:.7;
     }
 
-    /* History panel */
-
     #historyPanel {
-      position: fixed;
-      top: 0;
-      left: -310px;
-      width: 290px;
-      height: 100%;
-      background: #17181e;
-      z-index: 1000;
-      transition: left 0.25s ease;
-      box-shadow: 4px 0 20px rgba(0, 0, 0, 0.35);
-      overflow-y: auto;
+      position:fixed;
+      top:0;
+      left:-310px;
+      width:290px;
+      height:100%;
+      background:#17181e;
+      z-index:1000;
+      transition:left .25s ease;
+      box-shadow:4px 0 20px rgba(0,0,0,.35);
+      overflow-y:auto;
     }
 
     #historyPanel.open {
-      left: 0;
+      left:0;
     }
 
     .history-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 18px;
-      border-bottom: 1px solid #30313a;
-      color: white;
-      font-size: 20px;
-      font-weight: bold;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      padding:18px;
+      border-bottom:1px solid #30313a;
+      color:white;
+      font-size:20px;
+      font-weight:bold;
     }
 
     #closeHistory {
-      background: none;
-      border: 0;
-      color: white;
-      font-size: 25px;
+      background:none;
+      border:0;
+      color:white;
+      font-size:25px;
     }
 
     #historyList {
-      padding: 10px;
+      padding:10px;
     }
 
     .history-item {
-      width: 100%;
-      box-sizing: border-box;
-      background: #24262f;
-      color: white;
-      border: 0;
-      border-radius: 10px;
-      padding: 13px;
-      margin-bottom: 8px;
-      text-align: left;
-      font-size: 15px;
+      width:100%;
+      box-sizing:border-box;
+      background:#24262f;
+      color:white;
+      border:0;
+      border-radius:10px;
+      padding:13px;
+      margin-bottom:8px;
+      text-align:left;
+      font-size:15px;
     }
 
     .history-item:active {
-      background: #333641;
+      background:#333641;
     }
 
     .empty-history {
-      color: #999;
-      text-align: center;
-      padding: 30px 15px;
+      color:#999;
+      text-align:center;
+      padding:30px 15px;
     }
 
     #historyOverlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.45);
-      z-index: 999;
-      display: none;
+      position:fixed;
+      inset:0;
+      background:rgba(0,0,0,.45);
+      z-index:999;
+      display:none;
     }
 
     #historyOverlay.open {
-      display: block;
+      display:block;
     }
   </style>
 </head>
 
 <body>
 
-  <!-- Chat History -->
   <div id="historyOverlay"></div>
 
   <aside id="historyPanel">
@@ -192,17 +205,16 @@
     <div id="historyList"></div>
   </aside>
 
-  <!-- Header -->
   <header class="topbar">
     <span>🤖 Pocket AI</span>
 
     <div class="top-actions">
+      <button id="imageButton">🎨</button>
       <button id="historyButton">🗂️</button>
       <button id="newChat">＋ New Chat</button>
     </div>
   </header>
 
-  <!-- Chat -->
   <main id="chat">
     <div class="welcome" id="welcome">
       <h1>How can I help you?</h1>
@@ -210,7 +222,6 @@
     </div>
   </main>
 
-  <!-- Input -->
   <div class="input-area">
     <input
       id="messageInput"
@@ -239,6 +250,9 @@
 
     const newChat =
       document.getElementById("newChat");
+
+    const imageButton =
+      document.getElementById("imageButton");
 
     const historyButton =
       document.getElementById("historyButton");
@@ -269,7 +283,7 @@
 
 
     /* =========================
-       LONG-TERM MEMORY
+       MEMORY
     ========================= */
 
     let memories = JSON.parse(
@@ -287,9 +301,9 @@
         Date.now().toString();
 
       const newConversation = {
-        id: id,
-        title: "New Chat",
-        messages: []
+        id:id,
+        title:"New Chat",
+        messages:[]
       };
 
       chats.unshift(newConversation);
@@ -350,14 +364,14 @@
       ) {
 
         const migrated = {
-          id: Date.now().toString(),
+          id:Date.now().toString(),
 
           title:
             oldMessages[0]?.content
-              ? oldMessages[0].content.slice(0, 35)
+              ? oldMessages[0].content.slice(0,35)
               : "Previous Chat",
 
-          messages: oldMessages
+          messages:oldMessages
         };
 
         chats.push(migrated);
@@ -375,9 +389,7 @@
 
     }
 
-
     migrateOldChat();
-
 
     if (!getCurrentChat()) {
       createChat();
@@ -391,17 +403,17 @@
     function escapeHTML(text) {
 
       return String(text)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
+        .replace(/&/g,"&amp;")
+        .replace(/</g,"&lt;")
+        .replace(/>/g,"&gt;")
+        .replace(/"/g,"&quot;")
+        .replace(/'/g,"&#039;");
 
     }
 
 
     /* =========================
-       MARKDOWN FORMATTER
+       MARKDOWN
     ========================= */
 
     function formatInline(text) {
@@ -409,46 +421,37 @@
       let safe =
         escapeHTML(text);
 
-      /* Inline code */
-
       const codeParts = [];
 
       safe = safe.replace(
         /`([^`]+)`/g,
-        function(match, code) {
+        function(match,code) {
 
           const index =
             codeParts.length;
 
           codeParts.push(code);
 
-          return "___CODE_" + index + "___";
+          return "___CODE_" +
+            index +
+            "___";
 
         }
       );
-
-
-      /* Bold */
 
       safe = safe.replace(
         /\*\*(.*?)\*\*/g,
         "<strong>$1</strong>"
       );
 
-
-      /* Italic */
-
       safe = safe.replace(
         /(?<!\*)\*([^*]+)\*(?!\*)/g,
         "<em>$1</em>"
       );
 
-
-      /* Restore code */
-
       safe = safe.replace(
         /___CODE_(\d+)___/g,
-        function(match, index) {
+        function(match,index) {
 
           return "<code>" +
             codeParts[index] +
@@ -458,7 +461,6 @@
       );
 
       return safe;
-
     }
 
 
@@ -499,22 +501,13 @@
       }
 
 
-      for (
-        let i = 0;
-        i < lines.length;
-        i++
-      ) {
+      for (let i=0;i<lines.length;i++) {
 
         const originalLine =
           lines[i];
 
-
-        /* Code block */
-
         if (
-          originalLine
-            .trim()
-            .startsWith("```")
+          originalLine.trim().startsWith("```")
         ) {
 
           if (!inCodeBlock) {
@@ -539,7 +532,6 @@
           }
 
           continue;
-
         }
 
 
@@ -557,8 +549,6 @@
           originalLine.trim();
 
 
-        /* Empty line */
-
         if (line === "") {
 
           closeLists();
@@ -568,19 +558,13 @@
         }
 
 
-        /* Heading 1 */
-
-        if (
-          line.startsWith("# ")
-        ) {
+        if (line.startsWith("# ")) {
 
           closeLists();
 
           html +=
             "<h1>" +
-            formatInline(
-              line.substring(2)
-            ) +
+            formatInline(line.substring(2)) +
             "</h1>";
 
           continue;
@@ -588,19 +572,13 @@
         }
 
 
-        /* Heading 2 */
-
-        if (
-          line.startsWith("## ")
-        ) {
+        if (line.startsWith("## ")) {
 
           closeLists();
 
           html +=
             "<h2>" +
-            formatInline(
-              line.substring(3)
-            ) +
+            formatInline(line.substring(3)) +
             "</h2>";
 
           continue;
@@ -608,19 +586,13 @@
         }
 
 
-        /* Heading 3 */
-
-        if (
-          line.startsWith("### ")
-        ) {
+        if (line.startsWith("### ")) {
 
           closeLists();
 
           html +=
             "<h3>" +
-            formatInline(
-              line.substring(4)
-            ) +
+            formatInline(line.substring(4)) +
             "</h3>";
 
           continue;
@@ -628,11 +600,7 @@
         }
 
 
-        /* Bullet list */
-
-        if (
-          /^[-*]\s+/.test(line)
-        ) {
+        if (/^[-*]\s+/.test(line)) {
 
           if (!inBulletList) {
 
@@ -650,15 +618,14 @@
 
           }
 
-          const item =
-            line.replace(
-              /^[-*]\s+/,
-              ""
-            );
-
           html +=
             "<li>" +
-            formatInline(item) +
+            formatInline(
+              line.replace(
+                /^[-*]\s+/,
+                ""
+              )
+            ) +
             "</li>";
 
           continue;
@@ -666,11 +633,7 @@
         }
 
 
-        /* Numbered list */
-
-        if (
-          /^\d+\.\s+/.test(line)
-        ) {
+        if (/^\d+\.\s+/.test(line)) {
 
           if (!inNumberList) {
 
@@ -688,23 +651,20 @@
 
           }
 
-          const item =
-            line.replace(
-              /^\d+\.\s+/,
-              ""
-            );
-
           html +=
             "<li>" +
-            formatInline(item) +
+            formatInline(
+              line.replace(
+                /^\d+\.\s+/,
+                ""
+              )
+            ) +
             "</li>";
 
           continue;
 
         }
 
-
-        /* Normal paragraph */
 
         closeLists();
 
@@ -718,8 +678,6 @@
 
       closeLists();
 
-
-      /* Unclosed code block */
 
       if (inCodeBlock) {
 
@@ -737,13 +695,10 @@
 
 
     /* =========================
-       DISPLAY MESSAGE
+       DISPLAY TEXT MESSAGE
     ========================= */
 
-    function addMessage(
-      text,
-      type
-    ) {
+    function addMessage(text,type) {
 
       const welcome =
         document.getElementById("welcome");
@@ -773,7 +728,68 @@
 
 
     /* =========================
-       LOAD CURRENT CHAT
+       DISPLAY IMAGE
+    ========================= */
+
+    function addGeneratedImage(
+      imageSrc,
+      prompt
+    ) {
+
+      const welcome =
+        document.getElementById("welcome");
+
+      if (welcome) {
+        welcome.remove();
+      }
+
+
+      const message =
+        document.createElement("div");
+
+      message.className =
+        "message ai";
+
+
+      const image =
+        document.createElement("img");
+
+      image.className =
+        "generated-image";
+
+      image.src =
+        imageSrc;
+
+      image.alt =
+        "AI generated image";
+
+
+      const caption =
+        document.createElement("div");
+
+      caption.className =
+        "image-caption";
+
+      caption.textContent =
+        "🎨 Generated by Pocket AI";
+
+
+      message.appendChild(image);
+
+      message.appendChild(caption);
+
+      chat.appendChild(message);
+
+      chat.scrollTop =
+        chat.scrollHeight;
+
+      return message;
+
+    }
+
+
+    /* =========================
+       LOAD CHAT
     ========================= */
 
     function loadCurrentChat() {
@@ -801,8 +817,17 @@
       }
 
 
-      current.messages.forEach(
-        item => {
+      current.messages.forEach(item => {
+
+        if (item.type === "image") {
+
+          addMessage(
+            "🎨 Generated image: " +
+            item.prompt,
+            "ai"
+          );
+
+        } else {
 
           addMessage(
             item.content,
@@ -812,13 +837,14 @@
           );
 
         }
-      );
+
+      });
 
     }
 
 
     /* =========================
-       SAVE MEMORY
+       MEMORY
     ========================= */
 
     function saveMemories() {
@@ -830,10 +856,6 @@
 
     }
 
-
-    /* =========================
-       DETECT MEMORY
-    ========================= */
 
     function detectMemory(text) {
 
@@ -868,9 +890,7 @@
       ];
 
 
-      for (
-        const pattern of patterns
-      ) {
+      for (const pattern of patterns) {
 
         const match =
           text.match(pattern);
@@ -911,10 +931,6 @@
     }
 
 
-    /* =========================
-       MEMORY CONTEXT
-    ========================= */
-
     function buildMemoryContext() {
 
       if (!memories.length) {
@@ -927,7 +943,7 @@
       return memories
         .slice(-20)
         .map(
-          (memory, index) =>
+          (memory,index) =>
             `${index + 1}. ${memory}`
         )
         .join("\n");
@@ -936,7 +952,7 @@
 
 
     /* =========================
-       SEND MESSAGE
+       NORMAL CHAT
     ========================= */
 
     async function sendMessage() {
@@ -960,9 +976,7 @@
 
 
       if (!current) {
-
         return;
-
       }
 
 
@@ -973,8 +987,8 @@
 
 
       current.messages.push({
-        role: "user",
-        content: text
+        role:"user",
+        content:text
       });
 
 
@@ -983,7 +997,7 @@
       ) {
 
         current.title =
-          text.slice(0, 35);
+          text.slice(0,35);
 
       }
 
@@ -1031,17 +1045,17 @@ Give clear, useful and natural answers.
 Use Markdown when helpful:
 - Use **bold** for important words.
 - Use *italic* for emphasis.
-- Use #, ## or ### for headings when appropriate.
-- Use bullet lists for multiple points.
-- Use numbered lists for steps.
+- Use #, ## or ### for headings.
+- Use bullet lists.
+- Use numbered lists.
 - Use code blocks with triple backticks when showing code.
 `;
 
         const response =
           await puter.ai.chat([
             {
-              role: "system",
-              content: systemPrompt
+              role:"system",
+              content:systemPrompt
             },
             ...current.messages
           ]);
@@ -1082,8 +1096,8 @@ Use Markdown when helpful:
 
 
         current.messages.push({
-          role: "assistant",
-          content: answer
+          role:"assistant",
+          content:answer
         });
 
 
@@ -1099,6 +1113,116 @@ Use Markdown when helpful:
 
       }
 
+
+      sendButton.disabled = false;
+
+      input.focus();
+
+    }
+
+
+    /* =========================
+       IMAGE GENERATION
+    ========================= */
+
+    async function generateImage() {
+
+      const prompt =
+        input.value.trim();
+
+
+      if (!prompt) {
+
+        input.focus();
+
+        return;
+
+      }
+
+
+      const current =
+        getCurrentChat();
+
+
+      if (!current) {
+        return;
+      }
+
+
+      input.value = "";
+
+      imageButton.disabled = true;
+
+      sendButton.disabled = true;
+
+
+      const status =
+        addMessage(
+          "🎨 Creating your image...",
+          "ai"
+        );
+
+
+      status.classList.add(
+        "typing"
+      );
+
+
+      try {
+
+        const image =
+          await puter.ai.txt2img(
+            prompt
+          );
+
+
+        status.remove();
+
+
+        addGeneratedImage(
+          image.src,
+          prompt
+        );
+
+
+        current.messages.push({
+          role:"user",
+          content:"🎨 Generate image: " + prompt
+        });
+
+
+        current.messages.push({
+          role:"assistant",
+          type:"image",
+          prompt:prompt
+        });
+
+
+        if (
+          current.title === "New Chat"
+        ) {
+
+          current.title =
+            "🎨 " +
+            prompt.slice(0,30);
+
+        }
+
+
+        saveChats();
+
+        renderHistory();
+
+
+      } catch (error) {
+
+        status.textContent =
+          "Sorry, I couldn't generate that image right now. Please try again.";
+
+      }
+
+
+      imageButton.disabled = false;
 
       sendButton.disabled = false;
 
@@ -1130,7 +1254,17 @@ Use Markdown when helpful:
 
 
     /* =========================
-       HISTORY UI
+       IMAGE BUTTON
+    ========================= */
+
+    imageButton.addEventListener(
+      "click",
+      generateImage
+    );
+
+
+    /* =========================
+       HISTORY
     ========================= */
 
     function renderHistory() {
@@ -1148,53 +1282,47 @@ Use Markdown when helpful:
       }
 
 
-      chats.forEach(
-        item => {
+      chats.forEach(item => {
 
-          const button =
-            document.createElement("button");
-
-
-          button.className =
-            "history-item";
+        const button =
+          document.createElement("button");
 
 
-          button.textContent =
-            item.title || "New Chat";
+        button.className =
+          "history-item";
 
 
-          button.addEventListener(
-            "click",
-            function() {
-
-              currentChatId =
-                item.id;
-
-              saveChats();
-
-              loadCurrentChat();
-
-              closeHistoryPanel();
-
-              input.focus();
-
-            }
-          );
+        button.textContent =
+          item.title || "New Chat";
 
 
-          historyList.appendChild(
-            button
-          );
+        button.addEventListener(
+          "click",
+          function() {
 
-        }
-      );
+            currentChatId =
+              item.id;
+
+            saveChats();
+
+            loadCurrentChat();
+
+            closeHistoryPanel();
+
+            input.focus();
+
+          }
+        );
+
+
+        historyList.appendChild(
+          button
+        );
+
+      });
 
     }
 
-
-    /* =========================
-       OPEN HISTORY
-    ========================= */
 
     function openHistoryPanel() {
 
@@ -1210,10 +1338,6 @@ Use Markdown when helpful:
 
     }
 
-
-    /* =========================
-       CLOSE HISTORY
-    ========================= */
 
     function closeHistoryPanel() {
 
@@ -1257,7 +1381,7 @@ Use Markdown when helpful:
 
 
     /* =========================
-       ENTER TO SEND
+       ENTER
     ========================= */
 
     input.addEventListener(
