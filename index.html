@@ -2,206 +2,326 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Pocket AI</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pocket AI</title>
 
-        <link rel="stylesheet" href="style.css">
-          <script src="https://js.puter.com/v2/"></script>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://js.puter.com/v2/"></script>
 
-            <style>
-                .topbar {
-                      display:flex;
-                            align-items:center;
-                                  justify-content:space-between;
-                                        padding:10px 14px;
-                                            }
+  <style>
+    .topbar {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      padding:10px 14px;
+    }
 
-                                                #newChat {
-                                                      background:#272933;
-                                                            color:white;
-                                                                  border:0;
-                                                                        border-radius:10px;
-                                                                              padding:9px 12px;
-                                                                                    font-size:14px;
-                                                                                        }
+    #newChat {
+      background:#272933;
+      color:white;
+      border:0;
+      border-radius:10px;
+      padding:9px 12px;
+      font-size:14px;
+    }
 
-                                                                                            .message {
-                                                                                                  white-space:normal;
-                                                                                                      }
+    .message {
+      white-space:normal;
+    }
 
-                                                                                                          .message p {
-                                                                                                                margin:0 0 8px;
-                                                                                                                    }
+    .message p {
+      margin:0 0 8px;
+    }
 
-                                                                                                                        .message p:last-child {
-                                                                                                                              margin-bottom:0;
-                                                                                                                                  }
+    .message p:last-child {
+      margin-bottom:0;
+    }
 
-                                                                                                                                      .typing {
-                                                                                                                                            opacity:.7;
-                                                                                                                                                }
-                                                                                                                                                  </style>
-                                                                                                                                                  </head>
+    .typing {
+      opacity:.7;
+    }
+  </style>
+</head>
 
-                                                                                                                                                  <body>
+<body>
 
-                                                                                                                                                    <header class="topbar">
-                                                                                                                                                        <span>🤖 Pocket AI</span>
-                                                                                                                                                            <button id="newChat">＋ New Chat</button>
-                                                                                                                                                              </header>
+  <header class="topbar">
+    <span>🤖 Pocket AI</span>
+    <button id="newChat">＋ New Chat</button>
+  </header>
 
-                                                                                                                                                                <main id="chat">
-                                                                                                                                                                    <div class="welcome" id="welcome">
-                                                                                                                                                                          <h1>How can I help you?</h1>
-                                                                                                                                                                                <p>Created by Paras Dahake</p>
-                                                                                                                                                                                    </div>
-                                                                                                                                                                                      </main>
+  <main id="chat">
+    <div class="welcome" id="welcome">
+      <h1>How can I help you?</h1>
+      <p>Created by Paras Dahake</p>
+    </div>
+  </main>
 
-                                                                                                                                                                                        <div class="input-area">
-                                                                                                                                                                                            <input
-                                                                                                                                                                                                  id="messageInput"
-                                                                                                                                                                                                        type="text"
-                                                                                                                                                                                                              placeholder="Message Pocket AI..."
-                                                                                                                                                                                                                    autocomplete="off"
-                                                                                                                                                                                                                        >
-                                                                                                                                                                                                                            <button id="sendButton">➤</button>
-                                                                                                                                                                                                                              </div>
+  <div class="input-area">
+    <input
+      id="messageInput"
+      type="text"
+      placeholder="Message Pocket AI..."
+      autocomplete="off"
+    >
+    <button id="sendButton">➤</button>
+  </div>
 
-                                                                                                                                                                                                                                <script>
-                                                                                                                                                                                                                                    const chat = document.getElementById("chat");
-                                                                                                                                                                                                                                        const input = document.getElementById("messageInput");
-                                                                                                                                                                                                                                            const sendButton = document.getElementById("sendButton");
-                                                                                                                                                                                                                                                const newChat = document.getElementById("newChat");
+  <script>
+    const chat = document.getElementById("chat");
+    const input = document.getElementById("messageInput");
+    const sendButton = document.getElementById("sendButton");
+    const newChat = document.getElementById("newChat");
 
-                                                                                                                                                                                                                                                    let messages = JSON.parse(
-                                                                                                                                                                                                                                                          localStorage.getItem("pocketAI_messages") || "[]"
-                                                                                                                                                                                                                                                              );
+    // Saved conversation
+    let messages = JSON.parse(
+      localStorage.getItem("pocketAI_messages") || "[]"
+    );
 
-                                                                                                                                                                                                                                                                  function escapeHTML(text) {
-                                                                                                                                                                                                                                                                        return text
-                                                                                                                                                                                                                                                                                .replace(/&/g, "&amp;")
-                                                                                                                                                                                                                                                                                        .replace(/</g, "&lt;")
-                                                                                                                                                                                                                                                                                                .replace(/>/g, "&gt;");
-                                                                                                                                                                                                                                                                                                    }
+    // Long-term browser memory
+    let memories = JSON.parse(
+      localStorage.getItem("pocketAI_memories") || "[]"
+    );
 
-                                                                                                                                                                                                                                                                                                        function formatText(text) {
-                                                                                                                                                                                                                                                                                                              let safe = escapeHTML(text);
+    function escapeHTML(text) {
+      return String(text)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    }
 
-                                                                                                                                                                                                                                                                                                                    safe = safe.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
-                                                                                                                                                                                                                                                                                                                          safe = safe.replace(/\n/g, "<br>");
+    function formatText(text) {
+      let safe = escapeHTML(text);
 
-                                                                                                                                                                                                                                                                                                                                return safe;
-                                                                                                                                                                                                                                                                                                                                    }
+      safe = safe.replace(
+        /\*\*(.*?)\*\*/g,
+        "<strong>$1</strong>"
+      );
 
-                                                                                                                                                                                                                                                                                                                                        function addMessage(text, type) {
-                                                                                                                                                                                                                                                                                                                                              const welcome = document.getElementById("welcome");
-                                                                                                                                                                                                                                                                                                                                                    if (welcome) welcome.remove();
+      safe = safe.replace(/\n/g, "<br>");
 
-                                                                                                                                                                                                                                                                                                                                                          const message = document.createElement("div");
-                                                                                                                                                                                                                                                                                                                                                                message.className = "message " + type;
-                                                                                                                                                                                                                                                                                                                                                                      message.innerHTML = formatText(text);
+      return safe;
+    }
 
-                                                                                                                                                                                                                                                                                                                                                                            chat.appendChild(message);
-                                                                                                                                                                                                                                                                                                                                                                                  chat.scrollTop = chat.scrollHeight;
+    function addMessage(text, type) {
+      const welcome = document.getElementById("welcome");
 
-                                                                                                                                                                                                                                                                                                                                                                                        return message;
-                                                                                                                                                                                                                                                                                                                                                                                            }
+      if (welcome) {
+        welcome.remove();
+      }
 
-                                                                                                                                                                                                                                                                                                                                                                                                function saveMessages() {
-                                                                                                                                                                                                                                                                                                                                                                                                      localStorage.setItem(
-                                                                                                                                                                                                                                                                                                                                                                                                              "pocketAI_messages",
-                                                                                                                                                                                                                                                                                                                                                                                                                      JSON.stringify(messages)
-                                                                                                                                                                                                                                                                                                                                                                                                                            );
-                                                                                                                                                                                                                                                                                                                                                                                                                                }
+      const message = document.createElement("div");
 
-                                                                                                                                                                                                                                                                                                                                                                                                                                    function loadMessages() {
-                                                                                                                                                                                                                                                                                                                                                                                                                                          if (!messages.length) return;
+      message.className = "message " + type;
+      message.innerHTML = formatText(text);
 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                const welcome = document.getElementById("welcome");
-                                                                                                                                                                                                                                                                                                                                                                                                                                                      if (welcome) welcome.remove();
+      chat.appendChild(message);
+      chat.scrollTop = chat.scrollHeight;
 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                            messages.forEach(item => {
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                    addMessage(item.content, item.role === "user" ? "user" : "ai");
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                          });
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                              }
+      return message;
+    }
 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  async function sendMessage() {
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        const text = input.value.trim();
+    function saveMessages() {
+      localStorage.setItem(
+        "pocketAI_messages",
+        JSON.stringify(messages)
+      );
+    }
 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              if (!text || sendButton.disabled) return;
+    function saveMemories() {
+      localStorage.setItem(
+        "pocketAI_memories",
+        JSON.stringify(memories)
+      );
+    }
 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    addMessage(text, "user");
+    function loadMessages() {
+      if (!messages.length) return;
 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          messages.push({
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  role: "user",
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          content: text
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                });
+      const welcome = document.getElementById("welcome");
 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      saveMessages();
+      if (welcome) {
+        welcome.remove();
+      }
 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            input.value = "";
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  sendButton.disabled = true;
+      messages.forEach(item => {
+        addMessage(
+          item.content,
+          item.role === "user" ? "user" : "ai"
+        );
+      });
+    }
 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        const thinking = addMessage("Thinking...", "ai");
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              thinking.classList.add("typing");
+    // Automatically remember simple personal facts
+    function detectMemory(text) {
+      const lower = text.toLowerCase();
 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    try {
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            const response = await puter.ai.chat([
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      {
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  role: "system",
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              content:
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            "You are Pocket AI, a helpful, friendly and intelligent AI assistant created by Paras Dahake. Match the user's language naturally. You can communicate in English, Hindi, Marathi, or mixed language. Give clear and useful answers."
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      },
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                ...messages
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        ]);
+      const patterns = [
+        /my name is (.+)/i,
+        /i am called (.+)/i,
+        /i'm called (.+)/i,
+        /i like (.+)/i,
+        /i love (.+)/i,
+        /my favorite (.+)/i,
+        /remember that (.+)/i,
+        /remember this (.+)/i,
+        /माझं नाव (.+)/i,
+        /माझे नाव (.+)/i,
+        /मला (.+) आवडतं/i,
+        /मुझे (.+) पसंद है/i,
+        /मेरा नाम (.+) है/i
+      ];
 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                let answer = "";
+      for (const pattern of patterns) {
+        const match = text.match(pattern);
 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        if (typeof response === "string") {
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  answer = response;
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          } else if (response && response.message) {
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    answer = response.message.content || "";
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            } else {
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      answer = String(response || "");
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              }
+        if (match && match[1]) {
+          const memory = match[0].trim();
 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      thinking.remove();
+          if (
+            memory.length > 2 &&
+            !memories.some(
+              item => item.toLowerCase() === memory.toLowerCase()
+            )
+          ) {
+            memories.push(memory);
+            saveMemories();
+          }
 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              addMessage(answer, "ai");
+          break;
+        }
+      }
+    }
 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      messages.push({
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                role: "assistant",
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          content: answer
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  });
+    function buildMemoryContext() {
+      if (!memories.length) {
+        return "No saved personal memories yet.";
+      }
 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          saveMessages();
+      return memories
+        .slice(-20)
+        .map((memory, index) =>
+          `${index + 1}. ${memory}`
+        )
+        .join("\n");
+    }
 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                } catch (error) {
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        thinking.textContent =
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  "Sorry, I couldn't respond right now. Please try again.";
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        }
+    async function sendMessage() {
+      const text = input.value.trim();
 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              sendButton.disabled = false;
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    input.focus();
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        }
+      if (!text || sendButton.disabled) {
+        return;
+      }
 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            newChat.addEventListener("click", function() {
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  messages = [];
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        localStorage.removeItem("pocketAI_messages");
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              location.reload();
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  });
+      addMessage(text, "user");
 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      sendButton.addEventListener("click", sendMessage);
+      messages.push({
+        role: "user",
+        content: text
+      });
 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          input.addEventListener("keydown", function(event) {
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                if (event.key === "Enter") {
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        sendMessage();
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              }
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  });
+      detectMemory(text);
 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      loadMessages();
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          input.focus();
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            </script>
+      saveMessages();
 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            </body>
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            </html>
+      input.value = "";
+      sendButton.disabled = true;
+
+      const thinking = addMessage(
+        "Thinking...",
+        "ai"
+      );
+
+      thinking.classList.add("typing");
+
+      try {
+        const systemPrompt = `
+You are Pocket AI, a helpful, friendly and intelligent AI assistant created by Paras Dahake.
+
+Match the user's language naturally.
+You can communicate in English, Hindi, Marathi, or mixed language.
+
+Use the saved memory below when it is relevant.
+Do not mention the memory system unless the user asks about it.
+
+Saved memories:
+${buildMemoryContext()}
+
+Give clear, useful and natural answers.
+`;
+
+        const response = await puter.ai.chat([
+          {
+            role: "system",
+            content: systemPrompt
+          },
+          ...messages
+        ]);
+
+        let answer = "";
+
+        if (typeof response === "string") {
+          answer = response;
+        } else if (
+          response &&
+          response.message
+        ) {
+          answer =
+            response.message.content || "";
+        } else {
+          answer = String(response || "");
+        }
+
+        thinking.remove();
+
+        addMessage(answer, "ai");
+
+        messages.push({
+          role: "assistant",
+          content: answer
+        });
+
+        saveMessages();
+
+      } catch (error) {
+        thinking.textContent =
+          "Sorry, I couldn't respond right now. Please try again.";
+      }
+
+      sendButton.disabled = false;
+      input.focus();
+    }
+
+    newChat.addEventListener(
+      "click",
+      function() {
+        messages = [];
+
+        localStorage.removeItem(
+          "pocketAI_messages"
+        );
+
+        location.reload();
+      }
+    );
+
+    sendButton.addEventListener(
+      "click",
+      sendMessage
+    );
+
+    input.addEventListener(
+      "keydown",
+      function(event) {
+        if (event.key === "Enter") {
+          sendMessage();
+        }
+      }
+    );
+
+    loadMessages();
+    input.focus();
+  </script>
+
+</body>
+</html>
