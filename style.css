@@ -1,0 +1,210 @@
+* {
+      box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+          padding: 0;
+            width: 100%;
+              height: 100%;
+              }
+
+              body {
+                background: #0f1014;
+                  color: #ffffff;
+                    font-family: Arial, Helvetica, sans-serif;
+                      overflow: hidden;
+                      }
+
+                      /* Header */
+
+                      header {
+                        height: 70px;
+                          background: #191a20;
+                            border-bottom: 1px solid #30313a;
+
+                              display: flex;
+                                align-items: center;
+                                  justify-content: center;
+
+                                    font-size: 30px;
+                                      font-weight: 700;
+                                      }
+
+                                      .robot {
+                                        margin-right: 10px;
+                                        }
+
+                                        /* Chat */
+
+                                        #chat {
+                                          height: calc(100vh - 140px);
+                                            overflow-y: auto;
+                                              padding: 24px 18px 30px;
+
+                                                scroll-behavior: smooth;
+                                                }
+
+                                                .message {
+                                                  max-width: 86%;
+                                                    margin-bottom: 16px;
+                                                      padding: 13px 16px;
+
+                                                        border-radius: 18px;
+
+                                                          font-size: 17px;
+                                                            line-height: 1.55;
+
+                                                              white-space: pre-wrap;
+                                                                overflow-wrap: anywhere;
+                                                                }
+
+                                                                .user {
+                                                                  margin-left: auto;
+
+                                                                    background: #315cff;
+
+                                                                      border-bottom-right-radius: 5px;
+                                                                      }
+
+                                                                      .ai {
+                                                                        margin-right: auto;
+
+                                                                          background: #242630;
+
+                                                                            border-bottom-left-radius: 5px;
+                                                                            }
+
+                                                                            /* Welcome */
+
+                                                                            .welcome {
+                                                                              text-align: center;
+                                                                                margin-top: 24vh;
+                                                                                  padding: 20px;
+                                                                                  }
+
+                                                                                  .welcome h1 {
+                                                                                    margin: 0 0 10px;
+
+                                                                                      font-size: 30px;
+                                                                                        font-weight: 700;
+                                                                                        }
+
+                                                                                        .welcome p {
+                                                                                          margin: 0;
+
+                                                                                            color: #aeb1bd;
+                                                                                              font-size: 16px;
+                                                                                              }
+
+                                                                                              /* Bottom input */
+
+                                                                                              .input-area {
+                                                                                                position: fixed;
+
+                                                                                                  left: 0;
+                                                                                                    right: 0;
+                                                                                                      bottom: 0;
+
+                                                                                                        height: 70px;
+
+                                                                                                          background: #191a20;
+                                                                                                            border-top: 1px solid #30313a;
+
+                                                                                                              display: flex;
+                                                                                                                align-items: center;
+
+                                                                                                                  gap: 8px;
+                                                                                                                    padding: 10px 12px;
+                                                                                                                    }
+
+                                                                                                                    /* Text box */
+
+                                                                                                                    #messageInput {
+                                                                                                                      flex: 1;
+
+                                                                                                                        height: 48px;
+
+                                                                                                                          border: none;
+                                                                                                                            outline: none;
+
+                                                                                                                              border-radius: 25px;
+
+                                                                                                                                padding: 0 18px;
+
+                                                                                                                                  background: #272933;
+                                                                                                                                    color: #ffffff;
+
+                                                                                                                                      font-size: 16px;
+                                                                                                                                      }
+
+                                                                                                                                      #messageInput::placeholder {
+                                                                                                                                        color: #9295a3;
+                                                                                                                                        }
+
+                                                                                                                                        /* Send button */
+
+                                                                                                                                        button {
+                                                                                                                                          width: 48px;
+                                                                                                                                            height: 48px;
+
+                                                                                                                                              border: none;
+                                                                                                                                                border-radius: 50%;
+
+                                                                                                                                                  background: #315cff;
+                                                                                                                                                    color: #ffffff;
+
+                                                                                                                                                      cursor: pointer;
+
+                                                                                                                                                        font-size: 21px;
+
+                                                                                                                                                          display: flex;
+                                                                                                                                                            align-items: center;
+                                                                                                                                                              justify-content: center;
+
+                                                                                                                                                                transition: transform 0.12s ease;
+                                                                                                                                                                }
+
+                                                                                                                                                                button:active {
+                                                                                                                                                                  transform: scale(0.92);
+                                                                                                                                                                  }
+
+                                                                                                                                                                  /* Scrollbar */
+
+                                                                                                                                                                  #chat::-webkit-scrollbar {
+                                                                                                                                                                    width: 5px;
+                                                                                                                                                                    }
+
+                                                                                                                                                                    #chat::-webkit-scrollbar-thumb {
+                                                                                                                                                                      background: #3b3d48;
+                                                                                                                                                                        border-radius: 10px;
+                                                                                                                                                                        }
+
+                                                                                                                                                                        /* Mobile */
+
+                                                                                                                                                                        @media (max-width: 600px) {
+                                                                                                                                                                          header {
+                                                                                                                                                                              height: 64px;
+                                                                                                                                                                                  font-size: 27px;
+                                                                                                                                                                                    }
+
+                                                                                                                                                                                      #chat {
+                                                                                                                                                                                          height: calc(100vh - 134px);
+                                                                                                                                                                                              padding: 20px 14px 25px;
+                                                                                                                                                                                                }
+
+                                                                                                                                                                                                  .message {
+                                                                                                                                                                                                      max-width: 90%;
+                                                                                                                                                                                                          font-size: 16px;
+                                                                                                                                                                                                            }
+
+                                                                                                                                                                                                              .input-area {
+                                                                                                                                                                                                                  height: 70px;
+                                                                                                                                                                                                                      padding: 10px;
+                                                                                                                                                                                                                        }
+
+                                                                                                                                                                                                                          #messageInput {
+                                                                                                                                                                                                                              font-size: 16px;
+                                                                                                                                                                                                                                }
+                                                                                                                                                                                                                                }
