@@ -16,13 +16,24 @@
       padding:10px 14px;
     }
 
-    #newChat {
+    .top-actions {
+      display:flex;
+      gap:8px;
+      align-items:center;
+    }
+
+    #newChat,
+    #historyButton {
       background:#272933;
       color:white;
       border:0;
       border-radius:10px;
       padding:9px 12px;
       font-size:14px;
+    }
+
+    #historyButton {
+      font-size:18px;
     }
 
     .message {
@@ -40,14 +51,105 @@
     .typing {
       opacity:.7;
     }
+
+    /* History panel */
+    #historyPanel {
+      position:fixed;
+      top:0;
+      left:-310px;
+      width:290px;
+      height:100%;
+      background:#17181e;
+      z-index:1000;
+      transition:left .25s ease;
+      box-shadow:4px 0 20px rgba(0,0,0,.35);
+      overflow-y:auto;
+    }
+
+    #historyPanel.open {
+      left:0;
+    }
+
+    .history-header {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      padding:18px;
+      border-bottom:1px solid #30313a;
+      color:white;
+      font-size:20px;
+      font-weight:bold;
+    }
+
+    #closeHistory {
+      background:none;
+      border:0;
+      color:white;
+      font-size:25px;
+    }
+
+    #historyList {
+      padding:10px;
+    }
+
+    .history-item {
+      width:100%;
+      box-sizing:border-box;
+      background:#24262f;
+      color:white;
+      border:0;
+      border-radius:10px;
+      padding:13px;
+      margin-bottom:8px;
+      text-align:left;
+      font-size:15px;
+    }
+
+    .history-item:active {
+      background:#333641;
+    }
+
+    .empty-history {
+      color:#999;
+      text-align:center;
+      padding:30px 15px;
+    }
+
+    #historyOverlay {
+      position:fixed;
+      inset:0;
+      background:rgba(0,0,0,.45);
+      z-index:999;
+      display:none;
+    }
+
+    #historyOverlay.open {
+      display:block;
+    }
   </style>
 </head>
 
 <body>
 
+  <!-- History panel -->
+  <div id="historyOverlay"></div>
+
+  <aside id="historyPanel">
+    <div class="history-header">
+      <span>🗂️ Chat History</span>
+      <button id="closeHistory">×</button>
+    </div>
+
+    <div id="historyList"></div>
+  </aside>
+
   <header class="topbar">
     <span>🤖 Pocket AI</span>
-    <button id="newChat">＋ New Chat</button>
+
+    <div class="top-actions">
+      <button id="historyButton">🗂️</button>
+      <button id="newChat">＋ New Chat</button>
+    </div>
   </header>
 
   <main id="chat">
@@ -64,6 +166,7 @@
       placeholder="Message Pocket AI..."
       autocomplete="off"
     >
+
     <button id="sendButton">➤</button>
   </div>
 
@@ -73,15 +176,115 @@
     const sendButton = document.getElementById("sendButton");
     const newChat = document.getElementById("newChat");
 
-    // Saved conversation
-    let messages = JSON.parse(
-      localStorage.getItem("pocketAI_messages") || "[]"
+    const historyButton =
+      document.getElementById("historyButton");
+
+    const historyPanel =
+      document.getElementById("historyPanel");
+
+    const historyOverlay =
+      document.getElementById("historyOverlay");
+
+    const closeHistory =
+      document.getElementById("closeHistory");
+
+    const historyList =
+      document.getElementById("historyList");
+
+    /* =========================
+       CHAT HISTORY
+    ========================= */
+
+    let chats = JSON.parse(
+      localStorage.getItem("pocketAI_chats") || "[]"
     );
 
-    // Long-term browser memory
+    let currentChatId =
+      localStorage.getItem("pocketAI_current_chat");
+
+    /* =========================
+       MEMORY
+    ========================= */
+
     let memories = JSON.parse(
       localStorage.getItem("pocketAI_memories") || "[]"
     );
+
+    function createChat() {
+      const id =
+        Date.now().toString();
+
+      const newConversation = {
+        id: id,
+        title: "New Chat",
+        messages: []
+      };
+
+      chats.unshift(newConversation);
+
+      currentChatId = id;
+
+      saveChats();
+
+      return newConversation;
+    }
+
+    function getCurrentChat() {
+      return chats.find(
+        item => item.id === currentChatId
+      );
+    }
+
+    function saveChats() {
+      localStorage.setItem(
+        "pocketAI_chats",
+        JSON.stringify(chats)
+      );
+
+      localStorage.setItem(
+        "pocketAI_current_chat",
+        currentChatId || ""
+      );
+    }
+
+    function migrateOldChat() {
+      const oldMessages = JSON.parse(
+        localStorage.getItem("pocketAI_messages") || "[]"
+      );
+
+      if (
+        chats.length === 0 &&
+        oldMessages.length > 0
+      ) {
+        const migrated = {
+          id: Date.now().toString(),
+          title: oldMessages[0]?.content
+            ? oldMessages[0].content.slice(0, 35)
+            : "Previous Chat",
+          messages: oldMessages
+        };
+
+        chats.push(migrated);
+
+        currentChatId = migrated.id;
+
+        saveChats();
+
+        localStorage.removeItem(
+          "pocketAI_messages"
+        );
+      }
+    }
+
+    migrateOldChat();
+
+    if (!getCurrentChat()) {
+      createChat();
+    }
+
+    /* =========================
+       TEXT FORMATTING
+    ========================= */
 
     function escapeHTML(text) {
       return String(text)
@@ -98,35 +301,76 @@
         "<strong>$1</strong>"
       );
 
-      safe = safe.replace(/\n/g, "<br>");
+      safe = safe.replace(
+        /\n/g,
+        "<br>"
+      );
 
       return safe;
     }
 
+    /* =========================
+       DISPLAY MESSAGE
+    ========================= */
+
     function addMessage(text, type) {
-      const welcome = document.getElementById("welcome");
+      const welcome =
+        document.getElementById("welcome");
 
       if (welcome) {
         welcome.remove();
       }
 
-      const message = document.createElement("div");
+      const message =
+        document.createElement("div");
 
-      message.className = "message " + type;
-      message.innerHTML = formatText(text);
+      message.className =
+        "message " + type;
+
+      message.innerHTML =
+        formatText(text);
 
       chat.appendChild(message);
-      chat.scrollTop = chat.scrollHeight;
+
+      chat.scrollTop =
+        chat.scrollHeight;
 
       return message;
     }
 
-    function saveMessages() {
-      localStorage.setItem(
-        "pocketAI_messages",
-        JSON.stringify(messages)
-      );
+    function loadCurrentChat() {
+      chat.innerHTML = "";
+
+      const current =
+        getCurrentChat();
+
+      if (
+        !current ||
+        current.messages.length === 0
+      ) {
+        chat.innerHTML = `
+          <div class="welcome" id="welcome">
+            <h1>How can I help you?</h1>
+            <p>Created by Paras Dahake</p>
+          </div>
+        `;
+
+        return;
+      }
+
+      current.messages.forEach(item => {
+        addMessage(
+          item.content,
+          item.role === "user"
+            ? "user"
+            : "ai"
+        );
+      });
     }
+
+    /* =========================
+       MEMORY
+    ========================= */
 
     function saveMemories() {
       localStorage.setItem(
@@ -135,27 +379,7 @@
       );
     }
 
-    function loadMessages() {
-      if (!messages.length) return;
-
-      const welcome = document.getElementById("welcome");
-
-      if (welcome) {
-        welcome.remove();
-      }
-
-      messages.forEach(item => {
-        addMessage(
-          item.content,
-          item.role === "user" ? "user" : "ai"
-        );
-      });
-    }
-
-    // Automatically remember simple personal facts
     function detectMemory(text) {
-      const lower = text.toLowerCase();
-
       const patterns = [
         /my name is (.+)/i,
         /i am called (.+)/i,
@@ -173,17 +397,25 @@
       ];
 
       for (const pattern of patterns) {
-        const match = text.match(pattern);
+        const match =
+          text.match(pattern);
 
-        if (match && match[1]) {
-          const memory = match[0].trim();
+        if (
+          match &&
+          match[0] &&
+          match[0].trim().length > 2
+        ) {
+          const memory =
+            match[0].trim();
 
-          if (
-            memory.length > 2 &&
-            !memories.some(
-              item => item.toLowerCase() === memory.toLowerCase()
-            )
-          ) {
+          const exists =
+            memories.some(
+              item =>
+                item.toLowerCase() ===
+                memory.toLowerCase()
+            );
+
+          if (!exists) {
             memories.push(memory);
             saveMemories();
           }
@@ -200,48 +432,77 @@
 
       return memories
         .slice(-20)
-        .map((memory, index) =>
-          `${index + 1}. ${memory}`
+        .map(
+          (memory, index) =>
+            `${index + 1}. ${memory}`
         )
         .join("\n");
     }
 
-    async function sendMessage() {
-      const text = input.value.trim();
+    /* =========================
+       SEND MESSAGE
+    ========================= */
 
-      if (!text || sendButton.disabled) {
+    async function sendMessage() {
+      const text =
+        input.value.trim();
+
+      if (
+        !text ||
+        sendButton.disabled
+      ) {
+        return;
+      }
+
+      const current =
+        getCurrentChat();
+
+      if (!current) {
         return;
       }
 
       addMessage(text, "user");
 
-      messages.push({
+      current.messages.push({
         role: "user",
         content: text
       });
 
+      if (
+        current.title === "New Chat"
+      ) {
+        current.title =
+          text.slice(0, 35);
+      }
+
       detectMemory(text);
 
-      saveMessages();
+      saveChats();
 
       input.value = "";
+
       sendButton.disabled = true;
 
-      const thinking = addMessage(
-        "Thinking...",
-        "ai"
-      );
+      const thinking =
+        addMessage(
+          "Thinking...",
+          "ai"
+        );
 
-      thinking.classList.add("typing");
+      thinking.classList.add(
+        "typing"
+      );
 
       try {
         const systemPrompt = `
 You are Pocket AI, a helpful, friendly and intelligent AI assistant created by Paras Dahake.
 
 Match the user's language naturally.
+
 You can communicate in English, Hindi, Marathi, or mixed language.
 
-Use the saved memory below when it is relevant.
+Use the saved memory below when relevant.
+
 Do not mention the memory system unless the user asks about it.
 
 Saved memories:
@@ -250,17 +511,20 @@ ${buildMemoryContext()}
 Give clear, useful and natural answers.
 `;
 
-        const response = await puter.ai.chat([
-          {
-            role: "system",
-            content: systemPrompt
-          },
-          ...messages
-        ]);
+        const response =
+          await puter.ai.chat([
+            {
+              role: "system",
+              content: systemPrompt
+            },
+            ...current.messages
+          ]);
 
         let answer = "";
 
-        if (typeof response === "string") {
+        if (
+          typeof response === "string"
+        ) {
           answer = response;
         } else if (
           response &&
@@ -269,19 +533,25 @@ Give clear, useful and natural answers.
           answer =
             response.message.content || "";
         } else {
-          answer = String(response || "");
+          answer =
+            String(response || "");
         }
 
         thinking.remove();
 
-        addMessage(answer, "ai");
+        addMessage(
+          answer,
+          "ai"
+        );
 
-        messages.push({
+        current.messages.push({
           role: "assistant",
           content: answer
         });
 
-        saveMessages();
+        saveChats();
+
+        renderHistory();
 
       } catch (error) {
         thinking.textContent =
@@ -289,21 +559,115 @@ Give clear, useful and natural answers.
       }
 
       sendButton.disabled = false;
+
       input.focus();
     }
+
+    /* =========================
+       NEW CHAT
+    ========================= */
 
     newChat.addEventListener(
       "click",
       function() {
-        messages = [];
+        createChat();
 
-        localStorage.removeItem(
-          "pocketAI_messages"
-        );
+        loadCurrentChat();
 
-        location.reload();
+        renderHistory();
+
+        closeHistoryPanel();
+
+        input.focus();
       }
     );
+
+    /* =========================
+       CHAT HISTORY UI
+    ========================= */
+
+    function renderHistory() {
+      historyList.innerHTML = "";
+
+      if (!chats.length) {
+        historyList.innerHTML =
+          '<div class="empty-history">No chats yet.</div>';
+
+        return;
+      }
+
+      chats.forEach(item => {
+        const button =
+          document.createElement("button");
+
+        button.className =
+          "history-item";
+
+        button.textContent =
+          item.title || "New Chat";
+
+        button.addEventListener(
+          "click",
+          function() {
+            currentChatId =
+              item.id;
+
+            saveChats();
+
+            loadCurrentChat();
+
+            closeHistoryPanel();
+
+            input.focus();
+          }
+        );
+
+        historyList.appendChild(
+          button
+        );
+      });
+    }
+
+    function openHistoryPanel() {
+      historyPanel.classList.add(
+        "open"
+      );
+
+      historyOverlay.classList.add(
+        "open"
+      );
+
+      renderHistory();
+    }
+
+    function closeHistoryPanel() {
+      historyPanel.classList.remove(
+        "open"
+      );
+
+      historyOverlay.classList.remove(
+        "open"
+      );
+    }
+
+    historyButton.addEventListener(
+      "click",
+      openHistoryPanel
+    );
+
+    closeHistory.addEventListener(
+      "click",
+      closeHistoryPanel
+    );
+
+    historyOverlay.addEventListener(
+      "click",
+      closeHistoryPanel
+    );
+
+    /* =========================
+       ENTER TO SEND
+    ========================= */
 
     sendButton.addEventListener(
       "click",
@@ -313,13 +677,22 @@ Give clear, useful and natural answers.
     input.addEventListener(
       "keydown",
       function(event) {
-        if (event.key === "Enter") {
+        if (
+          event.key === "Enter"
+        ) {
           sendMessage();
         }
       }
     );
 
-    loadMessages();
+    /* =========================
+       START
+    ========================= */
+
+    loadCurrentChat();
+
+    renderHistory();
+
     input.focus();
   </script>
 
