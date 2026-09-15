@@ -10,128 +10,177 @@
 
   <style>
     .topbar {
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      padding:10px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
     }
 
     .top-actions {
-      display:flex;
-      gap:8px;
-      align-items:center;
+      display: flex;
+      gap: 8px;
+      align-items: center;
     }
 
     #newChat,
     #historyButton {
-      background:#272933;
-      color:white;
-      border:0;
-      border-radius:10px;
-      padding:9px 12px;
-      font-size:14px;
+      background: #272933;
+      color: white;
+      border: 0;
+      border-radius: 10px;
+      padding: 9px 12px;
+      font-size: 14px;
     }
 
     #historyButton {
-      font-size:18px;
+      font-size: 18px;
     }
 
     .message {
-      white-space:normal;
+      white-space: normal;
+      line-height: 1.55;
     }
 
     .message p {
-      margin:0 0 8px;
+      margin: 0 0 10px;
     }
 
-    .message p:last-child {
-      margin-bottom:0;
+    .message h1,
+    .message h2,
+    .message h3 {
+      margin: 10px 0 8px;
+      line-height: 1.25;
+    }
+
+    .message h1 {
+      font-size: 24px;
+    }
+
+    .message h2 {
+      font-size: 21px;
+    }
+
+    .message h3 {
+      font-size: 18px;
+    }
+
+    .message ul,
+    .message ol {
+      margin: 6px 0 10px 22px;
+      padding: 0;
+    }
+
+    .message li {
+      margin: 4px 0;
+    }
+
+    .message code {
+      background: #30323c;
+      padding: 2px 6px;
+      border-radius: 5px;
+      font-family: monospace;
+    }
+
+    .message pre {
+      background: #17181e;
+      border: 1px solid #30313a;
+      border-radius: 10px;
+      padding: 12px;
+      overflow-x: auto;
+      margin: 10px 0;
+    }
+
+    .message pre code {
+      background: transparent;
+      padding: 0;
+      white-space: pre;
     }
 
     .typing {
-      opacity:.7;
+      opacity: 0.7;
     }
 
     /* History panel */
+
     #historyPanel {
-      position:fixed;
-      top:0;
-      left:-310px;
-      width:290px;
-      height:100%;
-      background:#17181e;
-      z-index:1000;
-      transition:left .25s ease;
-      box-shadow:4px 0 20px rgba(0,0,0,.35);
-      overflow-y:auto;
+      position: fixed;
+      top: 0;
+      left: -310px;
+      width: 290px;
+      height: 100%;
+      background: #17181e;
+      z-index: 1000;
+      transition: left 0.25s ease;
+      box-shadow: 4px 0 20px rgba(0, 0, 0, 0.35);
+      overflow-y: auto;
     }
 
     #historyPanel.open {
-      left:0;
+      left: 0;
     }
 
     .history-header {
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      padding:18px;
-      border-bottom:1px solid #30313a;
-      color:white;
-      font-size:20px;
-      font-weight:bold;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px;
+      border-bottom: 1px solid #30313a;
+      color: white;
+      font-size: 20px;
+      font-weight: bold;
     }
 
     #closeHistory {
-      background:none;
-      border:0;
-      color:white;
-      font-size:25px;
+      background: none;
+      border: 0;
+      color: white;
+      font-size: 25px;
     }
 
     #historyList {
-      padding:10px;
+      padding: 10px;
     }
 
     .history-item {
-      width:100%;
-      box-sizing:border-box;
-      background:#24262f;
-      color:white;
-      border:0;
-      border-radius:10px;
-      padding:13px;
-      margin-bottom:8px;
-      text-align:left;
-      font-size:15px;
+      width: 100%;
+      box-sizing: border-box;
+      background: #24262f;
+      color: white;
+      border: 0;
+      border-radius: 10px;
+      padding: 13px;
+      margin-bottom: 8px;
+      text-align: left;
+      font-size: 15px;
     }
 
     .history-item:active {
-      background:#333641;
+      background: #333641;
     }
 
     .empty-history {
-      color:#999;
-      text-align:center;
-      padding:30px 15px;
+      color: #999;
+      text-align: center;
+      padding: 30px 15px;
     }
 
     #historyOverlay {
-      position:fixed;
-      inset:0;
-      background:rgba(0,0,0,.45);
-      z-index:999;
-      display:none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.45);
+      z-index: 999;
+      display: none;
     }
 
     #historyOverlay.open {
-      display:block;
+      display: block;
     }
   </style>
 </head>
 
 <body>
 
-  <!-- History panel -->
+  <!-- Chat History -->
   <div id="historyOverlay"></div>
 
   <aside id="historyPanel">
@@ -143,6 +192,7 @@
     <div id="historyList"></div>
   </aside>
 
+  <!-- Header -->
   <header class="topbar">
     <span>🤖 Pocket AI</span>
 
@@ -152,6 +202,7 @@
     </div>
   </header>
 
+  <!-- Chat -->
   <main id="chat">
     <div class="welcome" id="welcome">
       <h1>How can I help you?</h1>
@@ -159,6 +210,7 @@
     </div>
   </main>
 
+  <!-- Input -->
   <div class="input-area">
     <input
       id="messageInput"
@@ -171,10 +223,22 @@
   </div>
 
   <script>
-    const chat = document.getElementById("chat");
-    const input = document.getElementById("messageInput");
-    const sendButton = document.getElementById("sendButton");
-    const newChat = document.getElementById("newChat");
+
+    /* =========================
+       ELEMENTS
+    ========================= */
+
+    const chat =
+      document.getElementById("chat");
+
+    const input =
+      document.getElementById("messageInput");
+
+    const sendButton =
+      document.getElementById("sendButton");
+
+    const newChat =
+      document.getElementById("newChat");
 
     const historyButton =
       document.getElementById("historyButton");
@@ -191,6 +255,7 @@
     const historyList =
       document.getElementById("historyList");
 
+
     /* =========================
        CHAT HISTORY
     ========================= */
@@ -202,15 +267,22 @@
     let currentChatId =
       localStorage.getItem("pocketAI_current_chat");
 
+
     /* =========================
-       MEMORY
+       LONG-TERM MEMORY
     ========================= */
 
     let memories = JSON.parse(
       localStorage.getItem("pocketAI_memories") || "[]"
     );
 
+
+    /* =========================
+       CREATE CHAT
+    ========================= */
+
     function createChat() {
+
       const id =
         Date.now().toString();
 
@@ -229,13 +301,26 @@
       return newConversation;
     }
 
+
+    /* =========================
+       CURRENT CHAT
+    ========================= */
+
     function getCurrentChat() {
+
       return chats.find(
         item => item.id === currentChatId
       );
+
     }
 
+
+    /* =========================
+       SAVE CHATS
+    ========================= */
+
     function saveChats() {
+
       localStorage.setItem(
         "pocketAI_chats",
         JSON.stringify(chats)
@@ -245,9 +330,16 @@
         "pocketAI_current_chat",
         currentChatId || ""
       );
+
     }
 
+
+    /* =========================
+       OLD CHAT MIGRATION
+    ========================= */
+
     function migrateOldChat() {
+
       const oldMessages = JSON.parse(
         localStorage.getItem("pocketAI_messages") || "[]"
       );
@@ -256,70 +348,410 @@
         chats.length === 0 &&
         oldMessages.length > 0
       ) {
+
         const migrated = {
           id: Date.now().toString(),
-          title: oldMessages[0]?.content
-            ? oldMessages[0].content.slice(0, 35)
-            : "Previous Chat",
+
+          title:
+            oldMessages[0]?.content
+              ? oldMessages[0].content.slice(0, 35)
+              : "Previous Chat",
+
           messages: oldMessages
         };
 
         chats.push(migrated);
 
-        currentChatId = migrated.id;
+        currentChatId =
+          migrated.id;
 
         saveChats();
 
         localStorage.removeItem(
           "pocketAI_messages"
         );
+
       }
+
     }
 
+
     migrateOldChat();
+
 
     if (!getCurrentChat()) {
       createChat();
     }
 
+
     /* =========================
-       TEXT FORMATTING
+       HTML SAFETY
     ========================= */
 
     function escapeHTML(text) {
+
       return String(text)
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;");
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+
     }
 
-    function formatText(text) {
-      let safe = escapeHTML(text);
+
+    /* =========================
+       MARKDOWN FORMATTER
+    ========================= */
+
+    function formatInline(text) {
+
+      let safe =
+        escapeHTML(text);
+
+      /* Inline code */
+
+      const codeParts = [];
+
+      safe = safe.replace(
+        /`([^`]+)`/g,
+        function(match, code) {
+
+          const index =
+            codeParts.length;
+
+          codeParts.push(code);
+
+          return "___CODE_" + index + "___";
+
+        }
+      );
+
+
+      /* Bold */
 
       safe = safe.replace(
         /\*\*(.*?)\*\*/g,
         "<strong>$1</strong>"
       );
 
+
+      /* Italic */
+
       safe = safe.replace(
-        /\n/g,
-        "<br>"
+        /(?<!\*)\*([^*]+)\*(?!\*)/g,
+        "<em>$1</em>"
+      );
+
+
+      /* Restore code */
+
+      safe = safe.replace(
+        /___CODE_(\d+)___/g,
+        function(match, index) {
+
+          return "<code>" +
+            codeParts[index] +
+            "</code>";
+
+        }
       );
 
       return safe;
+
     }
+
+
+    function formatText(text) {
+
+      const lines =
+        String(text).split("\n");
+
+      let html = "";
+
+      let inCodeBlock = false;
+
+      let codeContent = "";
+
+      let inBulletList = false;
+
+      let inNumberList = false;
+
+
+      function closeLists() {
+
+        if (inBulletList) {
+
+          html += "</ul>";
+
+          inBulletList = false;
+
+        }
+
+        if (inNumberList) {
+
+          html += "</ol>";
+
+          inNumberList = false;
+
+        }
+
+      }
+
+
+      for (
+        let i = 0;
+        i < lines.length;
+        i++
+      ) {
+
+        const originalLine =
+          lines[i];
+
+
+        /* Code block */
+
+        if (
+          originalLine
+            .trim()
+            .startsWith("```")
+        ) {
+
+          if (!inCodeBlock) {
+
+            closeLists();
+
+            inCodeBlock = true;
+
+            codeContent = "";
+
+          } else {
+
+            html +=
+              "<pre><code>" +
+              escapeHTML(codeContent) +
+              "</code></pre>";
+
+            inCodeBlock = false;
+
+            codeContent = "";
+
+          }
+
+          continue;
+
+        }
+
+
+        if (inCodeBlock) {
+
+          codeContent +=
+            originalLine + "\n";
+
+          continue;
+
+        }
+
+
+        const line =
+          originalLine.trim();
+
+
+        /* Empty line */
+
+        if (line === "") {
+
+          closeLists();
+
+          continue;
+
+        }
+
+
+        /* Heading 1 */
+
+        if (
+          line.startsWith("# ")
+        ) {
+
+          closeLists();
+
+          html +=
+            "<h1>" +
+            formatInline(
+              line.substring(2)
+            ) +
+            "</h1>";
+
+          continue;
+
+        }
+
+
+        /* Heading 2 */
+
+        if (
+          line.startsWith("## ")
+        ) {
+
+          closeLists();
+
+          html +=
+            "<h2>" +
+            formatInline(
+              line.substring(3)
+            ) +
+            "</h2>";
+
+          continue;
+
+        }
+
+
+        /* Heading 3 */
+
+        if (
+          line.startsWith("### ")
+        ) {
+
+          closeLists();
+
+          html +=
+            "<h3>" +
+            formatInline(
+              line.substring(4)
+            ) +
+            "</h3>";
+
+          continue;
+
+        }
+
+
+        /* Bullet list */
+
+        if (
+          /^[-*]\s+/.test(line)
+        ) {
+
+          if (!inBulletList) {
+
+            if (inNumberList) {
+
+              html += "</ol>";
+
+              inNumberList = false;
+
+            }
+
+            html += "<ul>";
+
+            inBulletList = true;
+
+          }
+
+          const item =
+            line.replace(
+              /^[-*]\s+/,
+              ""
+            );
+
+          html +=
+            "<li>" +
+            formatInline(item) +
+            "</li>";
+
+          continue;
+
+        }
+
+
+        /* Numbered list */
+
+        if (
+          /^\d+\.\s+/.test(line)
+        ) {
+
+          if (!inNumberList) {
+
+            if (inBulletList) {
+
+              html += "</ul>";
+
+              inBulletList = false;
+
+            }
+
+            html += "<ol>";
+
+            inNumberList = true;
+
+          }
+
+          const item =
+            line.replace(
+              /^\d+\.\s+/,
+              ""
+            );
+
+          html +=
+            "<li>" +
+            formatInline(item) +
+            "</li>";
+
+          continue;
+
+        }
+
+
+        /* Normal paragraph */
+
+        closeLists();
+
+        html +=
+          "<p>" +
+          formatInline(line) +
+          "</p>";
+
+      }
+
+
+      closeLists();
+
+
+      /* Unclosed code block */
+
+      if (inCodeBlock) {
+
+        html +=
+          "<pre><code>" +
+          escapeHTML(codeContent) +
+          "</code></pre>";
+
+      }
+
+
+      return html;
+
+    }
+
 
     /* =========================
        DISPLAY MESSAGE
     ========================= */
 
-    function addMessage(text, type) {
+    function addMessage(
+      text,
+      type
+    ) {
+
       const welcome =
         document.getElementById("welcome");
 
       if (welcome) {
         welcome.remove();
       }
+
 
       const message =
         document.createElement("div");
@@ -336,18 +768,27 @@
         chat.scrollHeight;
 
       return message;
+
     }
 
+
+    /* =========================
+       LOAD CURRENT CHAT
+    ========================= */
+
     function loadCurrentChat() {
+
       chat.innerHTML = "";
 
       const current =
         getCurrentChat();
 
+
       if (
         !current ||
         current.messages.length === 0
       ) {
+
         chat.innerHTML = `
           <div class="welcome" id="welcome">
             <h1>How can I help you?</h1>
@@ -356,57 +797,94 @@
         `;
 
         return;
+
       }
 
-      current.messages.forEach(item => {
-        addMessage(
-          item.content,
-          item.role === "user"
-            ? "user"
-            : "ai"
-        );
-      });
+
+      current.messages.forEach(
+        item => {
+
+          addMessage(
+            item.content,
+            item.role === "user"
+              ? "user"
+              : "ai"
+          );
+
+        }
+      );
+
     }
 
+
     /* =========================
-       MEMORY
+       SAVE MEMORY
     ========================= */
 
     function saveMemories() {
+
       localStorage.setItem(
         "pocketAI_memories",
         JSON.stringify(memories)
       );
+
     }
 
+
+    /* =========================
+       DETECT MEMORY
+    ========================= */
+
     function detectMemory(text) {
+
       const patterns = [
+
         /my name is (.+)/i,
+
         /i am called (.+)/i,
+
         /i'm called (.+)/i,
+
         /i like (.+)/i,
+
         /i love (.+)/i,
+
         /my favorite (.+)/i,
+
         /remember that (.+)/i,
+
         /remember this (.+)/i,
+
         /माझं नाव (.+)/i,
+
         /माझे नाव (.+)/i,
+
         /मला (.+) आवडतं/i,
+
         /मुझे (.+) पसंद है/i,
+
         /मेरा नाम (.+) है/i
+
       ];
 
-      for (const pattern of patterns) {
+
+      for (
+        const pattern of patterns
+      ) {
+
         const match =
           text.match(pattern);
+
 
         if (
           match &&
           match[0] &&
           match[0].trim().length > 2
         ) {
+
           const memory =
             match[0].trim();
+
 
           const exists =
             memories.some(
@@ -415,20 +893,36 @@
                 memory.toLowerCase()
             );
 
+
           if (!exists) {
+
             memories.push(memory);
+
             saveMemories();
+
           }
 
           break;
+
         }
+
       }
+
     }
 
+
+    /* =========================
+       MEMORY CONTEXT
+    ========================= */
+
     function buildMemoryContext() {
+
       if (!memories.length) {
+
         return "No saved personal memories yet.";
+
       }
+
 
       return memories
         .slice(-20)
@@ -437,51 +931,72 @@
             `${index + 1}. ${memory}`
         )
         .join("\n");
+
     }
+
 
     /* =========================
        SEND MESSAGE
     ========================= */
 
     async function sendMessage() {
+
       const text =
         input.value.trim();
+
 
       if (
         !text ||
         sendButton.disabled
       ) {
+
         return;
+
       }
+
 
       const current =
         getCurrentChat();
 
+
       if (!current) {
+
         return;
+
       }
 
-      addMessage(text, "user");
+
+      addMessage(
+        text,
+        "user"
+      );
+
 
       current.messages.push({
         role: "user",
         content: text
       });
 
+
       if (
         current.title === "New Chat"
       ) {
+
         current.title =
           text.slice(0, 35);
+
       }
+
 
       detectMemory(text);
 
       saveChats();
 
+
       input.value = "";
 
       sendButton.disabled = true;
+
 
       const thinking =
         addMessage(
@@ -489,11 +1004,14 @@
           "ai"
         );
 
+
       thinking.classList.add(
         "typing"
       );
 
+
       try {
+
         const systemPrompt = `
 You are Pocket AI, a helpful, friendly and intelligent AI assistant created by Paras Dahake.
 
@@ -509,6 +1027,14 @@ Saved memories:
 ${buildMemoryContext()}
 
 Give clear, useful and natural answers.
+
+Use Markdown when helpful:
+- Use **bold** for important words.
+- Use *italic* for emphasis.
+- Use #, ## or ### for headings when appropriate.
+- Use bullet lists for multiple points.
+- Use numbered lists for steps.
+- Use code blocks with triple backticks when showing code.
 `;
 
         const response =
@@ -520,48 +1046,66 @@ Give clear, useful and natural answers.
             ...current.messages
           ]);
 
+
         let answer = "";
+
 
         if (
           typeof response === "string"
         ) {
+
           answer = response;
+
         } else if (
           response &&
           response.message
         ) {
+
           answer =
             response.message.content || "";
+
         } else {
+
           answer =
             String(response || "");
+
         }
 
+
         thinking.remove();
+
 
         addMessage(
           answer,
           "ai"
         );
 
+
         current.messages.push({
           role: "assistant",
           content: answer
         });
 
+
         saveChats();
 
         renderHistory();
 
+
       } catch (error) {
+
         thinking.textContent =
           "Sorry, I couldn't respond right now. Please try again.";
+
       }
+
 
       sendButton.disabled = false;
 
       input.focus();
+
     }
+
 
     /* =========================
        NEW CHAT
@@ -570,6 +1114,7 @@ Give clear, useful and natural answers.
     newChat.addEventListener(
       "click",
       function() {
+
         createChat();
 
         loadCurrentChat();
@@ -579,56 +1124,80 @@ Give clear, useful and natural answers.
         closeHistoryPanel();
 
         input.focus();
+
       }
     );
 
+
     /* =========================
-       CHAT HISTORY UI
+       HISTORY UI
     ========================= */
 
     function renderHistory() {
+
       historyList.innerHTML = "";
 
+
       if (!chats.length) {
+
         historyList.innerHTML =
           '<div class="empty-history">No chats yet.</div>';
 
         return;
+
       }
 
-      chats.forEach(item => {
-        const button =
-          document.createElement("button");
 
-        button.className =
-          "history-item";
+      chats.forEach(
+        item => {
 
-        button.textContent =
-          item.title || "New Chat";
+          const button =
+            document.createElement("button");
 
-        button.addEventListener(
-          "click",
-          function() {
-            currentChatId =
-              item.id;
 
-            saveChats();
+          button.className =
+            "history-item";
 
-            loadCurrentChat();
 
-            closeHistoryPanel();
+          button.textContent =
+            item.title || "New Chat";
 
-            input.focus();
-          }
-        );
 
-        historyList.appendChild(
-          button
-        );
-      });
+          button.addEventListener(
+            "click",
+            function() {
+
+              currentChatId =
+                item.id;
+
+              saveChats();
+
+              loadCurrentChat();
+
+              closeHistoryPanel();
+
+              input.focus();
+
+            }
+          );
+
+
+          historyList.appendChild(
+            button
+          );
+
+        }
+      );
+
     }
 
+
+    /* =========================
+       OPEN HISTORY
+    ========================= */
+
     function openHistoryPanel() {
+
       historyPanel.classList.add(
         "open"
       );
@@ -638,9 +1207,16 @@ Give clear, useful and natural answers.
       );
 
       renderHistory();
+
     }
 
+
+    /* =========================
+       CLOSE HISTORY
+    ========================= */
+
     function closeHistoryPanel() {
+
       historyPanel.classList.remove(
         "open"
       );
@@ -648,25 +1224,30 @@ Give clear, useful and natural answers.
       historyOverlay.classList.remove(
         "open"
       );
+
     }
+
 
     historyButton.addEventListener(
       "click",
       openHistoryPanel
     );
 
+
     closeHistory.addEventListener(
       "click",
       closeHistoryPanel
     );
+
 
     historyOverlay.addEventListener(
       "click",
       closeHistoryPanel
     );
 
+
     /* =========================
-       ENTER TO SEND
+       SEND BUTTON
     ========================= */
 
     sendButton.addEventListener(
@@ -674,16 +1255,26 @@ Give clear, useful and natural answers.
       sendMessage
     );
 
+
+    /* =========================
+       ENTER TO SEND
+    ========================= */
+
     input.addEventListener(
       "keydown",
       function(event) {
+
         if (
           event.key === "Enter"
         ) {
+
           sendMessage();
+
         }
+
       }
     );
+
 
     /* =========================
        START
@@ -694,6 +1285,7 @@ Give clear, useful and natural answers.
     renderHistory();
 
     input.focus();
+
   </script>
 
 </body>
