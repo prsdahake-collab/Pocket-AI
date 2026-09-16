@@ -68,6 +68,41 @@
       transform: scale(.97);
     }
 
+    .top-icon {
+      width: 40px;
+      height: 40px;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      background: #22242c;
+      border: 1px solid transparent;
+      transition: box-shadow .2s ease, border-color .2s ease, transform .15s ease;
+    }
+
+    .menu-icon {
+      color: #8fd3ff;
+      border-color: rgba(143, 211, 255, .28);
+      box-shadow: 0 0 7px rgba(143, 211, 255, .12);
+    }
+
+    .plus-icon {
+      color: #ff9f43;
+      border-color: rgba(255, 159, 67, .28);
+      box-shadow: 0 0 7px rgba(255, 159, 67, .12);
+    }
+
+    .voice-chat-icon {
+      color: #78a7ff;
+      border-color: rgba(120, 167, 255, .28);
+      box-shadow: 0 0 7px rgba(120, 167, 255, .12);
+    }
+
+    .top-icon:active {
+      box-shadow: none;
+    }
+
     #chat {
       flex: 1;
       overflow-y: auto;
@@ -257,34 +292,6 @@
       font-weight: bold;
     }
 
-    #voiceButton {
-      width: 44px;
-      height: 44px;
-      border: 0;
-      border-radius: 13px;
-      background: #272933;
-      color: white;
-      font-size: 19px;
-    }
-
-    #voiceButton:active {
-      transform: scale(.97);
-    }
-
-    #attachButton {
-      width: 44px;
-      height: 44px;
-      border: 0;
-      border-radius: 13px;
-      background: #272933;
-      color: white;
-      font-size: 19px;
-    }
-
-    #attachButton:active {
-      transform: scale(.97);
-    }
-
     #sendButton:disabled {
       opacity: .45;
     }
@@ -376,9 +383,11 @@
     <div class="brand">Limitra AI</div>
 
     <div class="top-actions">
+      <button class="action-btn top-icon menu-icon" id="menuButton" title="Menu">☰</button>
+      <button class="action-btn top-icon plus-icon" id="plusButton" title="Get Plus">＋</button>
+      <button class="action-btn top-icon voice-chat-icon" id="voiceChatButton" title="Voice Chat">🎙️</button>
       <button class="action-btn" id="imageButton" title="Image Generation">🎨</button>
       <button class="action-btn" id="historyButton" title="Chat History">🗂️</button>
-      <button class="action-btn" id="authButton">Account</button>
       <button class="action-btn" id="newChat">New Chat</button>
     </div>
   </header>
@@ -390,13 +399,6 @@
       <p>Ask me anything.</p>
     </div>
   </main>
-
-  <div class="panel" id="accountPanel">
-    <h3>👤 Limitra AI Account</h3>
-    <div id="accountStatus">Checking account...</div>
-    <button class="clear-btn" id="signInButton">Sign In</button>
-    <button class="clear-btn" id="signOutButton">Sign Out</button>
-  </div>
 
   <div class="panel" id="historyPanel">
     <h3>🗂️ Chat History</h3>
@@ -417,9 +419,6 @@
         rows="1"
       ></textarea>
 
-      <button id="attachButton" title="Upload file or image">📎</button>
-      <button id="voiceButton" title="Voice input">🎤</button>
-      <input id="fileInput" type="file" accept="image/*,.txt,.md,.csv,.json,.pdf" hidden>
       <button id="sendButton" title="Send">➤</button>
     </div>
 
@@ -438,57 +437,12 @@
                 );
                 </script>
 <script>
-  async function refreshAccountUI() {
-    try {
-      const { data } = await supabaseClient.auth.getUser();
-      accountStatus.textContent = data && data.user
-        ? "Signed in as " + (data.user.email || "Limitra AI user")
-        : "Not signed in. Chat still works normally.";
-    } catch {
-      accountStatus.textContent = "Account status unavailable.";
-    }
-  }
-
-  async function signInToLimitra() {
-    const email = prompt("Enter your email address:");
-    if (!email) return;
-    const password = prompt("Enter your password:");
-    if (!password) return;
-
-    const { error } = await supabaseClient.auth.signInWithPassword({
-      email,
-      password
-    });
-
-    if (error) {
-      alert(error.message);
-      return;
-    }
-    refreshAccountUI();
-  }
-
-  async function signOutOfLimitra() {
-    await supabaseClient.auth.signOut();
-    refreshAccountUI();
-  }
-
-  refreshAccountUI();
-</script>
-<script>
   const chat = document.getElementById("chat");
   const input = document.getElementById("input");
   const sendButton = document.getElementById("sendButton");
-  const attachButton = document.getElementById("attachButton");
-  const voiceButton = document.getElementById("voiceButton");
-  const fileInput = document.getElementById("fileInput");
   const newChatButton = document.getElementById("newChat");
   const historyButton = document.getElementById("historyButton");
   const historyPanel = document.getElementById("historyPanel");
-  const authButton = document.getElementById("authButton");
-  const accountPanel = document.getElementById("accountPanel");
-  const accountStatus = document.getElementById("accountStatus");
-  const signInButton = document.getElementById("signInButton");
-  const signOutButton = document.getElementById("signOutButton");
   const historyList = document.getElementById("historyList");
   const clearHistory = document.getElementById("clearHistory");
   const imageButton = document.getElementById("imageButton");
@@ -499,24 +453,9 @@
   let currentChat = [];
   let isBusy = false;
 
-  const MEMORY_KEY = "limitra_ai_memory";
-  const HISTORY_KEY = "limitra_ai_history";
-  const CURRENT_CHAT_KEY = "limitra_ai_current_chat";
-
-  function migrateLegacyStorage() {
-    const pairs = [
-      ["pocket_ai_memory", MEMORY_KEY],
-      ["pocket_ai_history", HISTORY_KEY],
-      ["pocket_ai_current_chat", CURRENT_CHAT_KEY]
-    ];
-    for (const [oldKey, newKey] of pairs) {
-      const oldValue = localStorage.getItem(oldKey);
-      const newValue = localStorage.getItem(newKey);
-      if (oldValue && !newValue) localStorage.setItem(newKey, oldValue);
-    }
-  }
-
-  migrateLegacyStorage();
+  const MEMORY_KEY = "pocket_ai_memory";
+  const HISTORY_KEY = "pocket_ai_history";
+  const CURRENT_CHAT_KEY = "pocket_ai_current_chat";
 
   function getMemory() {
     try {
@@ -644,14 +583,6 @@
 
     if (role === "bot") {
       bubble.innerHTML = formatMarkdown(text);
-
-      const speakButton = document.createElement("button");
-      speakButton.textContent = "🔊";
-      speakButton.title = "Read answer aloud";
-      speakButton.style.cssText =
-        "margin-top:8px;border:0;border-radius:8px;background:#30323d;color:white;padding:6px 9px;";
-      speakButton.addEventListener("click", () => speakAnswer(text));
-      bubble.appendChild(speakButton);
     } else {
       bubble.textContent = text;
     }
@@ -810,68 +741,6 @@
     return messages;
   }
 
-  async function handleFileUpload(file) {
-    if (!file) return;
-
-    try {
-      addMessage("user", "📎 " + file.name);
-
-      if (file.type.startsWith("image/")) {
-        const result = await puter.ai.img2txt(file);
-        addMessage(
-          "bot",
-          "### Image understanding\n\n" +
-          (result || "I couldn't read that image.")
-        );
-        updateHistory();
-        return;
-      }
-
-      if (file.size > 5 * 1024 * 1024) {
-        addMessage("bot", "That file is too large. Please upload a file under 5 MB.");
-        return;
-      }
-
-      const content = await file.text();
-      await sendChatMessage(
-        "Analyze this uploaded file named " + file.name +
-        " and answer helpfully:\n\n" + content.slice(0, 20000)
-      );
-    } catch {
-      addMessage("bot", "I couldn't read that file right now. Please try another file.");
-    } finally {
-      fileInput.value = "";
-    }
-  }
-
-
-  let recognition = null;
-
-  if ("webkitSpeechRecognition" in window || "SpeechRecognition" in window) {
-    const SpeechRecognition =
-      window.SpeechRecognition || window.webkitSpeechRecognition;
-    recognition = new SpeechRecognition();
-    recognition.continuous = false;
-    recognition.interimResults = false;
-    recognition.lang = "en-IN";
-
-    recognition.onresult = event => {
-      input.value = event.results[0][0].transcript;
-      input.dispatchEvent(new Event("input"));
-      input.focus();
-    };
-  }
-
-  function speakAnswer(text) {
-    if (!("speechSynthesis" in window)) return;
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(
-      text.replace(/[*#`]/g, "")
-    );
-    utterance.lang = "en-IN";
-    window.speechSynthesis.speak(utterance);
-  }
-
   async function sendChatMessage(prompt) {
     addMessage("user", prompt);
     addTyping();
@@ -929,7 +798,6 @@
       */
 
       const image = await puter.ai.txt2img(prompt, {
-        model: "gpt-image-2",
         quality: "low"
       });
 
@@ -1167,28 +1035,6 @@
       currentChat = [];
     }
   }
-
-  authButton.addEventListener("click", async () => {
-    accountPanel.classList.toggle("open");
-    historyPanel.classList.remove("open");
-    refreshAccountUI();
-  });
-
-  signInButton.addEventListener("click", signInToLimitra);
-  signOutButton.addEventListener("click", signOutOfLimitra);
-
-  attachButton.addEventListener("click", () => fileInput.click());
-  fileInput.addEventListener("change", () => {
-    handleFileUpload(fileInput.files && fileInput.files[0]);
-  });
-
-  voiceButton.addEventListener("click", () => {
-    if (recognition) {
-      recognition.start();
-    } else {
-      addMessage("bot", "Voice input is not supported by this browser.");
-    }
-  });
 
   sendButton.addEventListener("click", sendMessage);
 
