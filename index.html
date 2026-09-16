@@ -1127,35 +1127,36 @@
 
   sendButton.addEventListener("click", sendMessage);
 
-  // Limitra AI v17 voice input.
-  // Hybrid mode:
-  // 1) Browser SpeechRecognition shows words LIVE while the user speaks.
-  // 2) MediaRecorder captures the same audio.
-  // 3) When the user stops, Puter speech2txt performs the high-quality
-  //    final transcription and replaces the live draft.
-  // This keeps the UI responsive while using a stronger final transcript.
+  // Limitra AI v19 — HYBRID high-clarity voice input.
+  // 1) Live SpeechRecognition puts words into the composer immediately.
+  // 2) MediaRecorder captures the same speech in parallel.
+  // 3) When the user stops, Puter speech2txt can refine the transcript.
+  // If live recognition is unavailable, the recorded audio still gets a final
+  // transcription. Puter accepts File/Blob/WebM directly.
   const voiceLangButton = document.getElementById("voiceLang");
   const voiceLanguages = [
-    { code: "en", recognitionCode: "en-IN", label: "EN", name: "English (India)" },
-    { code: "hi", recognitionCode: "hi-IN", label: "HI", name: "Hindi (India)" },
-    { code: "mr", recognitionCode: "mr-IN", label: "MR", name: "Marathi (India)" }
+    { code: "en-IN", label: "EN", name: "English (India)" },
+    { code: "hi-IN", label: "HI", name: "Hindi (India)" },
+    { code: "mr-IN", label: "MR", name: "Marathi (India)" }
   ];
   let voiceLangIndex = 0;
 
-  let mediaStream = null;
-  let mediaRecorder = null;
-  let recordedChunks = [];
-  let isRecording = false;
-  let transcriptionBusy = false;
-
   const SpeechRecognition =
     window.SpeechRecognition || window.webkitSpeechRecognition || null;
+
   let recognition = null;
+  let isRecording = false;
   let recognitionRestartTimer = null;
   let voiceBaseText = "";
-  let liveVoiceText = "";
+  let liveFinalText = "";
   let liveInterimText = "";
   let stoppingVoice = false;
+  let voiceHadError = false;
+  let mediaRecorder = null;
+  let voiceChunks = [];
+  let voiceStream = null;
+  let voiceStartedAt = 0;
+  let finalizingVoice = false;
 
   function currentVoiceLanguage() {
     return voiceLanguages[voiceLangIndex];
@@ -1168,18 +1169,16 @@
     voiceLangButton.setAttribute("aria-label", "Voice language: " + lang.name);
   }
 
-  function setMicState(recording, transcribing = false) {
+  function setMicState(recording, finalizing = false) {
     isRecording = recording;
-    transcriptionBusy = transcribing;
-
     if (recording) {
       micButton.classList.add("listening");
-      micButton.title = "Recording… tap to stop";
-      micButton.setAttribute("aria-label", "Recording — tap to stop");
-    } else if (transcribing) {
+      micButton.title = "Listening — tap to stop";
+      micButton.setAttribute("aria-label", "Listening — tap to stop");
+    } else if (finalizing) {
       micButton.classList.remove("listening");
-      micButton.title = "Transcribing…";
-      micButton.setAttribute("aria-label", "Transcribing speech");
+      micButton.title = "Finalizing voice text…";
+      micButton.setAttribute("aria-label", "Finalizing voice text");
     } else {
       micButton.classList.remove("listening");
       micButton.title = "Voice input";
@@ -1187,9 +1186,6 @@
     }
   }
 
-  // Keep the composer height in sync after voice transcription.
-  // Some older Limitra AI builds did not define this helper, which caused
-  // a successful transcription to be reported as a voice error afterward.
   function updateInputSize() {
     if (!input) return;
     input.style.height = "auto";
@@ -1208,421 +1204,312 @@
   function normalizeLimitraTranscript(text) {
     let value = cleanVoiceText(text);
     if (!value) return "";
-
     value = value.replace(/\b(?:limited|limit(?:ed|ra)?|limit try|limitry|limit\s*ai|limit\s*eye)\s+(?:a\.?i\.?|ai|hi|i)\b/gi, "Limitra AI");
     value = value.replace(/\blimitra\s+(?:hi|i)\b/gi, "Limitra AI");
     value = value.replace(/\b(?:limitra|limited)\s+a\s*i\b/gi, "Limitra AI");
-
-    value = value.replace(
-      /\bhello\s+(?:limited|limit(?:ed|ra)?|limit try)\s+can you help me\s+(?:limited|limit(?:ed|ra)?|limit try)\s*(?:ai|hi|i)?\b/gi,
-      "Hello, can you help me, Limitra AI?"
-    );
-
     return cleanVoiceText(value);
   }
 
   function renderLiveVoice() {
-    const draft = [voiceBaseText, liveVoiceText, liveInterimText]
-      .filter(Boolean)
-      .join(" ");
-    input.value = cleanVoiceText(draft);
+    const parts = [voiceBaseText, liveFinalText, liveInterimText].filter(Boolean);
+    input.value = normalizeLimitraTranscript(parts.join(" "));
     input.dispatchEvent(new Event("input", { bubbles: true }));
     updateInputSize();
+    input.scrollTop = input.scrollHeight;
   }
 
-  function chooseMimeType() {
-    const choices = [
-      "audio/webm;codecs=opus",
-      "audio/webm",
-      "audio/mp4",
-      "audio/ogg;codecs=opus"
-    ];
-
-    for (const type of choices) {
-      if (
-        window.MediaRecorder &&
-        typeof MediaRecorder.isTypeSupported === "function" &&
-        MediaRecorder.isTypeSupported(type)
-      ) {
-        return type;
-      }
-    }
-    return "";
-  }
-
-  function cleanupMicrophone() {
-    if (mediaStream) {
-      mediaStream.getTracks().forEach(track => track.stop());
-      mediaStream = null;
+  function setVoiceStatus(text) {
+    if (text) {
+      micButton.dataset.voiceStatus = text;
+      micButton.title = text;
+    } else {
+      delete micButton.dataset.voiceStatus;
     }
   }
 
-  function stopRecognitionForVoice() {
+  function stopLiveRecognition() {
     clearTimeout(recognitionRestartTimer);
     recognitionRestartTimer = null;
-
     if (recognition) {
       try { recognition.stop(); } catch (_) {}
     }
   }
 
-  function startLiveRecognition() {
-    if (!recognition || !isRecording) return;
-
-    try {
-      recognition.lang = currentVoiceLanguage().recognitionCode;
-      recognition.start();
-    } catch (_) {
-      // Android Chromium can throw if start() happens during a restart.
-    }
+  function chooseRecorderMime() {
+    if (!window.MediaRecorder || typeof MediaRecorder.isTypeSupported !== "function") return "";
+    const choices = [
+      "audio/webm;codecs=opus",
+      "audio/webm",
+      "audio/ogg;codecs=opus",
+      "audio/mp4"
+    ];
+    return choices.find(x => MediaRecorder.isTypeSupported(x)) || "";
   }
 
-  function setupLiveRecognition() {
-    if (!SpeechRecognition) return;
+  function startAudioCapture() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) {
+      return Promise.resolve(false);
+    }
 
-    recognition = new SpeechRecognition();
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.maxAlternatives = 1;
-    recognition.lang = currentVoiceLanguage().recognitionCode;
-
-    recognition.onstart = () => {
-      if (isRecording) {
-        micButton.title = "Listening… tap to stop";
+    return navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+        channelCount: 1
       }
-    };
+    }).then(stream => {
+      voiceStream = stream;
+      voiceChunks = [];
+      const mimeType = chooseRecorderMime();
+      mediaRecorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+      mediaRecorder.ondataavailable = e => {
+        if (e.data && e.data.size > 0) voiceChunks.push(e.data);
+      };
+      mediaRecorder.start(250);
+      return true;
+    }).catch(err => {
+      console.warn("Limitra AI audio capture unavailable:", err);
+      voiceStream = null;
+      mediaRecorder = null;
+      return false;
+    });
+  }
 
-    recognition.onresult = event => {
+  function stopAudioCapture() {
+    return new Promise(resolve => {
+      const recorder = mediaRecorder;
+      if (!recorder) {
+        if (voiceStream) voiceStream.getTracks().forEach(t => t.stop());
+        voiceStream = null;
+        resolve(null);
+        return;
+      }
+
+      recorder.onstop = () => {
+        const type = recorder.mimeType || "audio/webm";
+        const ext = type.includes("ogg") ? "ogg" : type.includes("mp4") ? "mp4" : "webm";
+        const blob = new Blob(voiceChunks, { type });
+        const file = new File([blob], "limitra-voice." + ext, { type, lastModified: Date.now() });
+        if (voiceStream) voiceStream.getTracks().forEach(t => t.stop());
+        voiceStream = null;
+        mediaRecorder = null;
+        voiceChunks = [];
+        resolve(file);
+      };
+
+      try { recorder.stop(); } catch (_) {
+        const type = recorder.mimeType || "audio/webm";
+        const blob = new Blob(voiceChunks, { type });
+        const file = new File([blob], "limitra-voice.webm", { type, lastModified: Date.now() });
+        if (voiceStream) voiceStream.getTracks().forEach(t => t.stop());
+        voiceStream = null;
+        mediaRecorder = null;
+        voiceChunks = [];
+        resolve(file);
+      }
+    });
+  }
+
+  function makeRecognition() {
+    if (!SpeechRecognition) return null;
+    const r = new SpeechRecognition();
+    r.continuous = true;
+    r.interimResults = true;
+    r.maxAlternatives = 3;
+    r.lang = currentVoiceLanguage().code;
+
+    try {
+      if ("phrases" in r && typeof SpeechRecognitionPhrase !== "undefined") {
+        r.phrases = [
+          new SpeechRecognitionPhrase("Limitra AI", 8.0),
+          new SpeechRecognitionPhrase("Paras Dahake", 5.0),
+          new SpeechRecognitionPhrase("Limitra", 6.0),
+          new SpeechRecognitionPhrase("mic check", 4.0),
+          new SpeechRecognitionPhrase("can you hear me", 4.0)
+        ];
+      }
+    } catch (_) {}
+
+    r.onstart = () => { if (isRecording) setVoiceStatus("Listening — speak now"); };
+    r.onaudiostart = () => { if (isRecording) setVoiceStatus("Listening — speak now"); };
+
+    r.onresult = event => {
       if (!isRecording) return;
-
       let interim = "";
-
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const result = event.results[i];
         if (!result || !result[0]) continue;
-
         const piece = cleanVoiceText(result[0].transcript);
         if (!piece) continue;
-
         if (result.isFinal) {
-          liveVoiceText = cleanVoiceText(
-            [liveVoiceText, piece].filter(Boolean).join(" ")
-          );
+          liveFinalText = cleanVoiceText([liveFinalText, piece].filter(Boolean).join(" "));
         } else {
           interim = piece;
         }
       }
-
       liveInterimText = interim;
       renderLiveVoice();
     };
 
-    recognition.onerror = event => {
-      console.warn("Limitra AI live voice recognition:", event.error);
-
-      // The live recognizer is only a display layer. The MediaRecorder +
-      // Puter transcription continues even if browser recognition fails.
-      if (isRecording && !stoppingVoice &&
-          event.error !== "not-allowed" &&
-          event.error !== "service-not-allowed") {
-        clearTimeout(recognitionRestartTimer);
-        recognitionRestartTimer = setTimeout(() => {
-          if (isRecording && !stoppingVoice) startLiveRecognition();
-        }, 250);
+    r.onerror = event => {
+      voiceHadError = true;
+      console.warn("Limitra AI live voice error:", event.error);
+      if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+        stopLiveRecognition();
+        setVoiceStatus("Live recognition blocked");
+        return;
       }
-    };
-
-    recognition.onend = () => {
       if (isRecording && !stoppingVoice) {
         clearTimeout(recognitionRestartTimer);
         recognitionRestartTimer = setTimeout(() => {
-          if (isRecording && !stoppingVoice) startLiveRecognition();
-        }, 250);
-      }
-    };
-  }
-
-  function audioBufferToWavBlob(audioBuffer) {
-    const channels = Math.min(audioBuffer.numberOfChannels || 1, 2);
-    const sampleRate = audioBuffer.sampleRate || 44100;
-    const frameCount = audioBuffer.length;
-    const bytesPerSample = 2;
-    const blockAlign = channels * bytesPerSample;
-    const dataSize = frameCount * blockAlign;
-    const buffer = new ArrayBuffer(44 + dataSize);
-    const view = new DataView(buffer);
-
-    const writeString = (offset, value) => {
-      for (let i = 0; i < value.length; i++) {
-        view.setUint8(offset + i, value.charCodeAt(i));
+          if (!isRecording || stoppingVoice || !recognition) return;
+          try { recognition.lang = currentVoiceLanguage().code; recognition.start(); } catch (_) {}
+        }, 450);
       }
     };
 
-    writeString(0, "RIFF");
-    view.setUint32(4, 36 + dataSize, true);
-    writeString(8, "WAVE");
-    writeString(12, "fmt ");
-    view.setUint32(16, 16, true);
-    view.setUint16(20, 1, true);
-    view.setUint16(22, channels, true);
-    view.setUint32(24, sampleRate, true);
-    view.setUint32(28, sampleRate * blockAlign, true);
-    view.setUint16(32, blockAlign, true);
-    view.setUint16(34, 16, true);
-    writeString(36, "data");
-    view.setUint32(40, dataSize, true);
-
-    const channelData = [];
-    for (let channel = 0; channel < channels; channel++) {
-      channelData.push(audioBuffer.getChannelData(channel));
-    }
-
-    let offset = 44;
-    for (let i = 0; i < frameCount; i++) {
-      for (let channel = 0; channel < channels; channel++) {
-        let sample = channelData[channel][i] || 0;
-        sample = Math.max(-1, Math.min(1, sample));
-        view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
-        offset += 2;
+    r.onend = () => {
+      if (isRecording && !stoppingVoice) {
+        clearTimeout(recognitionRestartTimer);
+        recognitionRestartTimer = setTimeout(() => {
+          if (!isRecording || stoppingVoice || !recognition) return;
+          try { recognition.lang = currentVoiceLanguage().code; recognition.start(); } catch (_) {}
+        }, 300);
       }
-    }
-
-    return new Blob([buffer], { type: "audio/wav" });
+    };
+    return r;
   }
 
-  async function makeWavFile(blob) {
-    if (!blob || blob.size < 1000) {
-      throw new Error("No usable audio was recorded.");
-    }
+  async function refineVoiceWithPuter(file, existingText) {
+    if (!file || file.size < 1000 || !window.puter || !puter.ai || !puter.ai.speech2txt) return existingText;
 
-    // MediaRecorder on Android commonly creates WebM/Opus. Puter accepts WAV
-    // reliably, so decode the browser recording and send a real .wav File.
-    if (!window.AudioContext && !window.webkitAudioContext) {
-      return new File([blob], "limitra-voice.webm", {
-        type: blob.type || "audio/webm"
-      });
-    }
+    setMicState(false, true);
+    setVoiceStatus("Finalizing voice text…");
 
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    const ctx = new AudioCtx();
-    try {
-      const bytes = await blob.arrayBuffer();
-      const audioBuffer = await ctx.decodeAudioData(bytes.slice(0));
-      const wavBlob = audioBufferToWavBlob(audioBuffer);
-      return new File([wavBlob], "limitra-voice.wav", { type: "audio/wav" });
-    } finally {
-      try { await ctx.close(); } catch (_) {}
-    }
-  }
+    const lang = currentVoiceLanguage().code.split("-")[0];
+    const prompt = "Limitra AI, Paras Dahake, mic check, hello, can you hear me. " +
+      "Preserve the speaker's original language and wording. Do not translate unless necessary.";
 
-  async function transcribeRecordedAudio(blob) {
-    const lang = currentVoiceLanguage();
-    const prompt =
-      "Limitra AI, created by Paras Dahake. Recognize Limitra AI exactly. " +
-      "The speaker may use Indian English, Hindi, Marathi, or mixed language. " +
-      "Preserve the speaker's wording and do not invent words.";
-
-    const audioFile = await makeWavFile(blob);
-
-    // Use a real File with a supported filename/extension. This avoids the
-    // mobile-browser Blob format error seen with the previous version.
     const attempts = [
-      () => puter.ai.speech2txt(audioFile, {
-        model: "gpt-4o-transcribe",
-        language: lang.code,
-        prompt
-      }),
-      () => puter.ai.speech2txt(audioFile, {
-        model: "gpt-4o-mini-transcribe",
-        prompt
-      }),
-      () => puter.ai.speech2txt(audioFile, {
-        model: "whisper-1",
-        prompt
-      })
+      { provider: "openai", model: "gpt-4o-transcribe", language: lang, prompt, response_format: "json" },
+      { provider: "openai", model: "gpt-4o-mini-transcribe", language: lang, prompt, response_format: "json" },
+      { provider: "openai", model: "whisper-1", language: lang, prompt, response_format: "json" },
+      { provider: "openai", model: "whisper-1", response_format: "json" }
     ];
 
-    let lastError = null;
-    for (const attempt of attempts) {
+    for (const options of attempts) {
       try {
-        const result = await attempt();
-        const raw = typeof result === "string"
-          ? result
-          : (result && (result.text || result.transcript)) || "";
-        const transcript = normalizeLimitraTranscript(raw);
-        if (transcript) return transcript;
-      } catch (error) {
-        lastError = error;
-        console.warn("Limitra AI STT attempt failed:", error);
+        const result = await puter.ai.speech2txt(file, options);
+        const text = typeof result === "string" ? result : (result && (result.text || result.transcript));
+        const clean = normalizeLimitraTranscript(text || "");
+        if (clean) return clean;
+      } catch (err) {
+        console.warn("Limitra AI final STT attempt failed:", options.model, err);
       }
     }
-
-    throw lastError || new Error("Speech transcription returned no text.");
+    return existingText;
   }
 
-  async function finishVoiceRecording(blob, fallbackText) {
-    setMicState(false, true);
-
-    try {
-      const transcript = await transcribeRecordedAudio(blob);
-
-      if (transcript) {
-        input.value = cleanVoiceText(
-          [voiceBaseText, transcript].filter(Boolean).join(" ")
-        );
-      } else if (fallbackText) {
-        input.value = cleanVoiceText(
-          [voiceBaseText, fallbackText].filter(Boolean).join(" ")
-        );
-      } else {
-        alert("I couldn't hear any clear words. Please try again.");
-      }
-
-      input.dispatchEvent(new Event("input", { bubbles: true }));
-      updateInputSize();
-      input.focus();
-    } catch (error) {
-      console.error("Limitra AI speech-to-text error:", error);
-
-      // If Puter STT fails, keep the live browser transcript instead of
-      // leaving the user with an empty composer.
-      if (fallbackText) {
-        input.value = cleanVoiceText(
-          [voiceBaseText, fallbackText].filter(Boolean).join(" ")
-        );
-        input.dispatchEvent(new Event("input", { bubbles: true }));
-        updateInputSize();
-        input.focus();
-      } else {
-        const detail = error && (error.message || error.msg || error.error || String(error));
-        alert("Voice transcription failed. " + detail);
-      }
-    } finally {
-      setMicState(false, false);
-      stoppingVoice = false;
-    }
-  }
-
-  async function startVoiceRecording() {
-    if (isRecording || transcriptionBusy) return;
-
-    if (
-      !navigator.mediaDevices ||
-      !navigator.mediaDevices.getUserMedia ||
-      !window.MediaRecorder
-    ) {
-      alert("This browser does not support voice recording. Please update your browser.");
+  async function startVoice() {
+    if (isRecording) {
+      await stopVoice();
       return;
     }
 
-    try {
-      mediaStream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          channelCount: 1,
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
-        }
-      });
+    if (!SpeechRecognition && !(navigator.mediaDevices && window.MediaRecorder)) {
+      alert("Voice input is not available in this browser. Please allow microphone access or use Chrome on Android.");
+      return;
+    }
 
-      voiceBaseText = cleanVoiceText(input.value);
-      liveVoiceText = "";
-      liveInterimText = "";
-      recordedChunks = [];
-      stoppingVoice = false;
+    voiceBaseText = cleanVoiceText(input.value);
+    liveFinalText = "";
+    liveInterimText = "";
+    stoppingVoice = false;
+    voiceHadError = false;
+    finalizingVoice = false;
+    voiceStartedAt = Date.now();
 
-      const mimeType = chooseMimeType();
-      mediaRecorder = mimeType
-        ? new MediaRecorder(mediaStream, { mimeType })
-        : new MediaRecorder(mediaStream);
+    setMicState(true);
+    setVoiceStatus("Starting microphone…");
 
-      mediaRecorder.ondataavailable = event => {
-        if (event.data && event.data.size > 0) {
-          recordedChunks.push(event.data);
-        }
-      };
+    // Capture audio in parallel. This is also the fallback/final-quality path.
+    startAudioCapture();
 
-      mediaRecorder.onstop = async () => {
-        cleanupMicrophone();
-
-        const type = mediaRecorder && mediaRecorder.mimeType
-          ? mediaRecorder.mimeType
-          : (mimeType || "audio/webm");
-
-        const blob = new Blob(recordedChunks, { type });
-        recordedChunks = [];
-
-        const fallbackText = cleanVoiceText(
-          [liveVoiceText, liveInterimText].filter(Boolean).join(" ")
-        );
-
-        await finishVoiceRecording(blob, fallbackText);
-      };
-
-      mediaRecorder.onerror = event => {
-        console.error("MediaRecorder error:", event.error);
-        cleanupMicrophone();
-        stopRecognitionForVoice();
-        setMicState(false, false);
-        stoppingVoice = false;
-        alert("The microphone recording failed. Please try again.");
-      };
-
-      mediaRecorder.start(250);
-      setMicState(true, false);
-
-      // Show live words immediately when the browser supports it.
-      setupLiveRecognition();
-      startLiveRecognition();
-
-    } catch (error) {
-      cleanupMicrophone();
-      stopRecognitionForVoice();
-      setMicState(false, false);
-      console.error("Microphone permission error:", error);
-
-      if (error && error.name === "NotAllowedError") {
-        alert("Please allow microphone access for Limitra AI.");
-      } else {
-        alert("Limitra AI could not start the microphone.");
+    if (SpeechRecognition) {
+      recognition = makeRecognition();
+      try {
+        recognition.start();
+      } catch (error) {
+        console.warn("Live recognition start failed:", error);
+        recognition = null;
       }
+    }
+
+    if (!recognition && !mediaRecorder) {
+      setMicState(false);
+      alert("Limitra AI could not start voice input. Please allow microphone access and try again.");
     }
   }
 
-  function stopVoiceRecording() {
-    if (!isRecording || stoppingVoice) return;
+  async function stopVoice() {
+    if (!isRecording || finalizingVoice) return;
 
     stoppingVoice = true;
-    stopRecognitionForVoice();
+    finalizingVoice = true;
+    clearTimeout(recognitionRestartTimer);
+    stopLiveRecognition();
 
-    if (mediaRecorder && mediaRecorder.state !== "inactive") {
-      mediaRecorder.stop();
-    } else {
-      cleanupMicrophone();
-      setMicState(false, false);
-      stoppingVoice = false;
+    // Keep every word currently visible before final STT refinement.
+    const liveText = normalizeLimitraTranscript(
+      [voiceBaseText, liveFinalText, liveInterimText].filter(Boolean).join(" ")
+    );
+    if (liveText) {
+      input.value = liveText;
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      updateInputSize();
     }
+
+    const file = await stopAudioCapture();
+    setMicState(false, true);
+    setVoiceStatus("Finalizing voice text…");
+
+    let finalText = liveText;
+    // Only wait for final STT if we captured a meaningful recording.
+    if (file && file.size >= 1000 && (Date.now() - voiceStartedAt) >= 300) {
+      try {
+        finalText = await refineVoiceWithPuter(file, liveText);
+      } catch (err) {
+        console.warn("Limitra AI final voice refinement failed:", err);
+      }
+    }
+
+    input.value = normalizeLimitraTranscript(finalText || liveText);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    updateInputSize();
+    input.focus();
+
+    liveInterimText = "";
+    recognition = null;
+    finalizingVoice = false;
+    stoppingVoice = false;
+    setMicState(false);
+    setVoiceStatus("");
   }
 
   voiceLangButton.addEventListener("click", () => {
-    if (isRecording || transcriptionBusy) return;
-
+    if (isRecording || finalizingVoice) return;
     voiceLangIndex = (voiceLangIndex + 1) % voiceLanguages.length;
     updateVoiceLanguageUI();
   });
 
-  micButton.addEventListener("click", () => {
-    if (isRecording) {
-      stopVoiceRecording();
-    } else if (!transcriptionBusy) {
-      startVoiceRecording();
-    }
-  });
+  micButton.addEventListener("click", startVoice);
 
   window.addEventListener("pagehide", () => {
     stoppingVoice = true;
-    stopRecognitionForVoice();
-    cleanupMicrophone();
+    stopLiveRecognition();
+    if (mediaRecorder) { try { mediaRecorder.stop(); } catch (_) {} }
+    if (voiceStream) voiceStream.getTracks().forEach(t => t.stop());
   });
 
   updateVoiceLanguageUI();
