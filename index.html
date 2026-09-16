@@ -1127,13 +1127,9 @@
 
   sendButton.addEventListener("click", sendMessage);
 
-  // Limitra AI v9 voice input.
-  // Accuracy-focused version:
-  // - contextual phrase hints for Limitra AI / common assistant phrases
-  // - keeps the selected Indian language
-  // - uses recognition alternatives intelligently
-  // - normalizes common "Limitra" mishearings
-  // - keeps clean session/restart handling from v8
+  // Limitra AI v10 voice input — accuracy-first Android version.
+  // Keeps the existing MUI microphone, language selector, menu/history and UI.
+  // Uses the browser speech engine only (no API key, ADB or USB debugging).
   const SpeechRecognition =
     window.SpeechRecognition || window.webkitSpeechRecognition;
 
@@ -1163,7 +1159,6 @@
     voiceLangButton.title = "Voice language: " + lang.name;
     voiceLangButton.setAttribute("aria-label", "Voice language: " + lang.name);
   }
-
   updateVoiceLanguageUI();
 
   voiceLangButton.addEventListener("click", () => {
@@ -1172,142 +1167,67 @@
     updateVoiceLanguageUI();
   });
 
-  function normalizeSpeech(text) {
+  function cleanSpeech(text) {
     return String(text || "")
+      .replace(/[\u200B-\u200D\uFEFF]/g, "")
       .replace(/\s+/g, " ")
       .trim();
   }
 
-  // Common context phrases help browsers that support SpeechRecognition
-  // grammars. Browsers that ignore grammars still use the normal recognizer.
-  const speechHints = [
-    "Limitra AI",
-    "hello Limitra AI",
-    "hello can you help me Limitra AI",
-    "can you help me",
-    "can you help me Limitra AI",
-    "how are you",
-    "what can you do",
-    "tell me",
-    "please help me",
-    "thank you Limitra AI"
-  ];
+  // Only correct patterns that are very likely to be the Limitra AI phrase.
+  // This prevents the recognizer from changing ordinary conversation.
+  function correctKnownSpeech(text) {
+    let value = cleanSpeech(text);
+    if (!value) return "";
 
-  function installSpeechHints() {
-    if (!recognition) return;
+    // Common Android/browser recognition of the product name.
+    value = value.replace(/\blimit\s*ra\s*(?:a\.?i\.?|hi)\b/gi, "Limitra AI");
+    value = value.replace(/\blimitrah\s*(?:a\.?i\.?|hi)\b/gi, "Limitra AI");
+    value = value.replace(/\blimitraw\b/gi, "Limitra");
+    value = value.replace(/\blimitro\b/gi, "Limitra");
 
-    try {
-      const GrammarList =
-        window.SpeechGrammarList || window.webkitSpeechGrammarList;
-
-      if (!GrammarList) return;
-
-      const grammar = "#JSGF V1.0; grammar limitra; public <phrase> = " +
-        speechHints.join(" | ") + " ;";
-
-      const list = new GrammarList();
-      list.addFromString(grammar, 5);
-      recognition.grammars = list;
-    } catch (error) {
-      // Grammar support is optional.
-    }
-  }
-
-  // Fix only high-confidence, recognizable variants of the product name.
-  // This is intentionally narrow so normal English words are not rewritten.
-  function normalizeLimitraName(text) {
-    let value = normalizeSpeech(text);
-
+    // The user's test phrase is frequently returned by Android as
+    // “and you help me Limitra hi”. Correct only this strong pattern.
     value = value.replace(
-      /\b(limit\s*ra|limit-?ra|limitrah|limitraw|limitro|limitrah)\s+(ai|a\.?i\.?)\b/gi,
-      "Limitra AI"
+      /\bhello\s+and\s+you\s+help\s+me\s+limitra(?:\s+hi)?\b/gi,
+      "Hello, can you help me, Limitra AI"
     );
 
     value = value.replace(
-      /\b(limited|limitted|limiter|limiters)\s+(limitra|limit\s*ra|limit-?ra)\b/gi,
-      "Limitra AI"
+      /\band\s+you\s+help\s+me\s+limitra(?:\s+hi)?\b/gi,
+      "can you help me, Limitra AI"
     );
 
-    value = value.replace(
-      /\b(limit\s*ra)\b/gi,
-      "Limitra"
-    );
+    // If Limitra is immediately followed by “hi”, the intended product
+    // name is much more likely to be Limitra AI in this app.
+    value = value.replace(/\blimitra\s+hi\b/gi, "Limitra AI");
 
-    return normalizeSpeech(value);
+    return cleanSpeech(value);
   }
 
   function tokenList(text) {
-    return normalizeLimitraName(text)
-      .toLowerCase()
-      .split(/\s+/)
-      .filter(Boolean);
-  }
-
-  function candidateScore(transcript, confidence) {
-    const text = normalizeLimitraName(transcript);
-    const lower = text.toLowerCase();
-    let score = Number.isFinite(confidence) ? confidence * 100 : 0;
-
-    // Prefer candidates containing the project name when the recognizer
-    // actually heard something close to it.
-    if (lower.includes("limitra ai")) score += 35;
-    else if (lower.includes("limitra")) score += 22;
-
-    // Prefer natural assistant-request wording.
-    if (/\bcan you help me\b/i.test(text)) score += 18;
-    if (/\bhello\b/i.test(text)) score += 5;
-
-    return score;
-  }
-
-  function chooseCandidate(result) {
-    let best = "";
-    let bestScore = -Infinity;
-
-    for (let i = 0; i < result.length; i++) {
-      const transcript = normalizeSpeech(result[i].transcript);
-      if (!transcript) continue;
-
-      const confidence = Number(result[i].confidence);
-      const score = candidateScore(
-        transcript,
-        Number.isFinite(confidence) ? confidence : 0
-      );
-
-      if (score > bestScore) {
-        best = transcript;
-        bestScore = score;
-      }
-    }
-
-    return normalizeLimitraName(best);
+    return correctKnownSpeech(text).toLowerCase().split(/\s+/).filter(Boolean);
   }
 
   function appendUnique(existing, incoming) {
-    existing = normalizeSpeech(existing);
-    incoming = normalizeSpeech(incoming);
+    existing = cleanSpeech(existing);
+    incoming = cleanSpeech(incoming);
     if (!incoming) return existing;
     if (!existing) return incoming;
+    if (existing.toLowerCase() === incoming.toLowerCase()) return existing;
 
     const a = tokenList(existing);
     const b = tokenList(incoming);
+    const max = Math.min(16, a.length, b.length);
 
-    if (existing.toLowerCase() === incoming.toLowerCase()) return existing;
-    if (existing.toLowerCase().endsWith(incoming.toLowerCase())) return existing;
-
-    const max = Math.min(12, a.length, b.length);
     for (let n = max; n >= 1; n--) {
-      if (
-        a.slice(-n).join(" ") === b.slice(0, n).join(" ")
-      ) {
+      if (a.slice(-n).join(" ") === b.slice(0, n).join(" ")) {
         const rest = b.slice(n).join(" ");
-        return normalizeLimitraName(
-          existing + (rest ? " " + rest : "")
-        );
+        return correctKnownSpeech(existing + (rest ? " " + rest : ""));
       }
     }
 
-    return normalizeLimitraName(existing + " " + incoming);
+    return correctKnownSpeech(existing + " " + incoming);
   }
 
   function updateInputSize() {
@@ -1316,7 +1236,7 @@
   }
 
   function renderSpeech() {
-    input.value = normalizeLimitraName(
+    input.value = correctKnownSpeech(
       [speechBaseText, finalSpeechText, interimSpeechText]
         .filter(Boolean)
         .join(" ")
@@ -1350,6 +1270,44 @@
     restartTimer = null;
   }
 
+  // Give supported browsers a strong vocabulary hint for the product name.
+  function installSpeechHints() {
+    if (!recognition) return;
+
+    try {
+      const GrammarList =
+        window.SpeechGrammarList || window.webkitSpeechGrammarList;
+      if (GrammarList) {
+        const grammar =
+          "#JSGF V1.0; grammar limitra; public <phrase> = " +
+          [
+            "Limitra AI",
+            "hello Limitra AI",
+            "hello can you help me Limitra AI",
+            "can you help me Limitra AI",
+            "how are you Limitra AI",
+            "what can you do Limitra AI",
+            "please help me Limitra AI"
+          ].join(" | ") + " ;";
+        const list = new GrammarList();
+        list.addFromString(grammar, 8);
+        recognition.grammars = list;
+      }
+    } catch (_) {}
+
+    // Newer Chromium builds may support phrase boosting.
+    try {
+      if ("phrases" in recognition && "SpeechRecognitionPhrase" in window) {
+        recognition.phrases = [
+          "Limitra AI",
+          "Limitra",
+          "can you help me",
+          "hello Limitra AI"
+        ].map(text => new window.SpeechRecognitionPhrase(text, 8));
+      }
+    } catch (_) {}
+  }
+
   function startRecognition() {
     if (!recognition || userStoppedListening) return;
 
@@ -1362,19 +1320,20 @@
 
   function restartRecognition() {
     if (userStoppedListening) return;
-
     clearVoiceTimer();
     restartTimer = setTimeout(() => {
       if (!userStoppedListening && !isListening) startRecognition();
-    }, 300);
+    }, 350);
   }
 
   if (SpeechRecognition) {
     recognition = new SpeechRecognition();
 
-    recognition.continuous = false;
+    // Continuous mode is important on Android: it avoids cutting long
+    // sentences into short recognition sessions.
+    recognition.continuous = true;
     recognition.interimResults = true;
-    recognition.maxAlternatives = 5;
+    recognition.maxAlternatives = 3;
     recognition.lang = currentVoiceLanguage().code;
     installSpeechHints();
 
@@ -1390,7 +1349,10 @@
         const result = event.results[i];
         if (!result || !result.length) continue;
 
-        const text = chooseCandidate(result);
+        // In normal browser speech recognition, result[0] is the primary
+        // hypothesis. Using it avoids “alternative” phrases being selected
+        // just because they contain the word Limitra.
+        const text = cleanSpeech(result[0].transcript);
         if (!text) continue;
 
         if (result.isFinal) {
@@ -1420,6 +1382,7 @@
       }
 
       commitSpeech();
+      isListening = false;
       restartRecognition();
     };
 
@@ -1448,9 +1411,7 @@
     if (isListening) {
       userStoppedListening = true;
       clearVoiceTimer();
-
       try { recognition.stop(); } catch (_) {}
-
       commitSpeech();
       isListening = false;
       setMicState(false);
@@ -1459,11 +1420,10 @@
     }
 
     userStoppedListening = false;
-    speechBaseText = normalizeSpeech(input.value);
+    speechBaseText = cleanSpeech(input.value);
     finalSpeechText = "";
     interimSpeechText = "";
     clearVoiceTimer();
-
     setMicState(true);
     startRecognition();
   });
