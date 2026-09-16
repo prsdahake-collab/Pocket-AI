@@ -1019,19 +1019,18 @@
 
   sendButton.addEventListener("click", sendMessage);
 
-  // Limitra AI improved voice input.
-  // Uses the browser's built-in Speech Recognition with:
-  // - continuous listening
-  // - interim results
-  // - automatic restart after the browser pauses/stops recognition
-  // - language selection based on the device/browser language
+  // Limitra AI v2 voice input.
+  // Keeps the existing UI, but makes speech capture more resilient on
+  // Android browsers: automatic restart, accumulated final text,
+  // interim text, best-confidence alternative, and a small restart delay.
   const SpeechRecognition =
     window.SpeechRecognition || window.webkitSpeechRecognition;
 
   let recognition = null;
   let isListening = false;
-  let userStoppedListening = false;
+  let userStoppedListening = true;
   let speechBaseText = "";
+  let finalSpeechText = "";
   let restartTimer = null;
 
   function getSpeechLanguage() {
@@ -1044,110 +1043,135 @@
     return "en-IN";
   }
 
-  function resizeVoiceInput() {
+  function updateInputSize() {
     input.style.height = "44px";
     input.style.height = Math.min(input.scrollHeight, 130) + "px";
+  }
+
+  function updateSpeechText(interimText = "") {
+    const parts = [speechBaseText, finalSpeechText, interimText]
+      .map(text => text.trim())
+      .filter(Boolean);
+
+    input.value = parts.join(" ").replace(/\s+/g, " ").trim();
+    updateInputSize();
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    chat.scrollTop = chat.scrollHeight;
+  }
+
+  function setMicIdle() {
+    micButton.classList.remove("listening");
+    micButton.title = "Voice input";
+    micButton.setAttribute("aria-label", "Voice input");
+  }
+
+  function setMicListening() {
+    micButton.classList.add("listening");
+    micButton.title = "Listening… tap to stop";
+    micButton.setAttribute("aria-label", "Listening — tap to stop");
+  }
+
+  function startRecognition() {
+    if (!recognition || userStoppedListening) return;
+
+    try {
+      recognition.lang = getSpeechLanguage();
+      recognition.start();
+    } catch (error) {
+      // The browser may still be changing recognition state.
+    }
   }
 
   if (SpeechRecognition) {
     recognition = new SpeechRecognition();
 
-    // Important for longer speech. Android browsers can still stop
-    // recognition after silence, so onend below automatically restarts it.
     recognition.continuous = true;
     recognition.interimResults = true;
-    recognition.maxAlternatives = 1;
+    recognition.maxAlternatives = 3;
     recognition.lang = getSpeechLanguage();
 
     recognition.onstart = () => {
       isListening = true;
-      micButton.classList.add("listening");
-      micButton.title = "Stop voice input";
-      micButton.setAttribute("aria-label", "Stop voice input");
+      setMicListening();
     };
 
     recognition.onresult = event => {
-      let finalText = "";
       let interimText = "";
 
       for (let i = event.resultIndex; i < event.results.length; i++) {
-        const transcript = event.results[i][0].transcript.trim();
+        const result = event.results[i];
 
-        if (event.results[i].isFinal) {
-          finalText += (finalText ? " " : "") + transcript;
-        } else {
-          interimText += (interimText ? " " : "") + transcript;
+        // Pick the highest-confidence alternative supplied by the browser.
+        let bestTranscript = "";
+        let bestConfidence = -1;
+
+        for (let j = 0; j < result.length; j++) {
+          const candidate = (result[j].transcript || "").trim();
+          const confidence =
+            typeof result[j].confidence === "number"
+              ? result[j].confidence
+              : 0;
+
+          if (candidate && confidence >= bestConfidence) {
+            bestTranscript = candidate;
+            bestConfidence = confidence;
+          }
+        }
+
+        if (result.isFinal) {
+          if (bestTranscript) {
+            finalSpeechText +=
+              (finalSpeechText ? " " : "") + bestTranscript;
+          }
+          interimText = "";
+        } else if (bestTranscript) {
+          interimText +=
+            (interimText ? " " : "") + bestTranscript;
         }
       }
 
-      const combined = [
-        speechBaseText,
-        finalText,
-        interimText
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .replace(/\s+/g, " ")
-        .trim();
-
-      input.value = combined;
-      resizeVoiceInput();
-      chat.scrollTop = chat.scrollHeight;
+      updateSpeechText(interimText);
     };
 
     recognition.onerror = event => {
-      // These errors can happen normally while continuous recognition
-      // is being restarted, so don't interrupt the user with alerts.
-      if (
-        event.error === "aborted" ||
-        event.error === "no-speech" ||
-        event.error === "audio-capture"
-      ) {
-        return;
-      }
-
       if (
         event.error === "not-allowed" ||
         event.error === "service-not-allowed"
       ) {
         userStoppedListening = true;
         isListening = false;
-        micButton.classList.remove("listening");
-        alert(
-          "Microphone permission is required for Limitra AI voice input."
-        );
+        setMicIdle();
+        alert("Please allow microphone access for Limitra AI.");
         return;
       }
 
-      console.warn("Limitra AI speech recognition:", event.error);
+      // no-speech, aborted, and audio-capture can occur naturally on Android.
+      // onend will restart listening unless the user stopped it.
+      console.warn("Limitra AI voice input:", event.error);
     };
 
     recognition.onend = () => {
       isListening = false;
 
-      // If the browser stopped listening by itself, keep the mic active
-      // and restart recognition so longer sentences can continue.
       if (!userStoppedListening) {
-        speechBaseText = input.value.trim();
+        // Preserve every word already captured before restarting.
+        speechBaseText = [
+          speechBaseText,
+          finalSpeechText
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .replace(/\s+/g, " ")
+          .trim();
+
+        finalSpeechText = "";
 
         clearTimeout(restartTimer);
-        restartTimer = setTimeout(() => {
-          if (!userStoppedListening && recognition) {
-            try {
-              recognition.lang = getSpeechLanguage();
-              recognition.start();
-            } catch (error) {
-              // A rapid restart can throw while the browser is changing state.
-            }
-          }
-        }, 250);
-
+        restartTimer = setTimeout(startRecognition, 180);
         return;
       }
 
-      micButton.classList.remove("listening");
-      micButton.title = "Voice input";
-      micButton.setAttribute("aria-label", "Voice input");
+      setMicIdle();
       input.focus();
     };
   }
@@ -1167,27 +1191,25 @@
       try {
         recognition.stop();
       } catch (error) {
-        // Ignore if recognition is already stopped.
+        // Already stopped.
       }
 
       isListening = false;
-      micButton.classList.remove("listening");
-      micButton.title = "Voice input";
-      micButton.setAttribute("aria-label", "Voice input");
+      setMicIdle();
       input.focus();
       return;
     }
 
+    // Start a fresh voice capture while preserving text the user already typed.
     userStoppedListening = false;
     speechBaseText = input.value.trim();
-    recognition.lang = getSpeechLanguage();
-
-    try {
-      recognition.start();
-    } catch (error) {
-      // Ignore duplicate starts caused by rapid taps.
-    }
+    finalSpeechText = "";
+    clearTimeout(restartTimer);
+    setMicListening();
+    startRecognition();
   });
+
+
 
   input.addEventListener("keydown", event => {
     if (event.key === "Enter" && !event.shiftKey) {
