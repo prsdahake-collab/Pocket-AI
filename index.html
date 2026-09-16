@@ -1127,7 +1127,7 @@
 
   sendButton.addEventListener("click", sendMessage);
 
-  // Limitra AI v13 voice input.
+  // Limitra AI v14 voice input.
   // Hybrid mode:
   // 1) Browser SpeechRecognition shows words LIVE while the user speaks.
   // 2) MediaRecorder captures the same audio.
@@ -1337,25 +1337,69 @@
     }
 
     const lang = currentVoiceLanguage();
+    const prompt =
+      "Personal AI assistant called Limitra AI, created by Paras Dahake. " +
+      "Recognize 'Limitra AI' exactly. The speaker may use Indian English, Hindi, Marathi, " +
+      "or mixed language. Preserve the speaker's wording. Do not invent words.";
 
-    const result = await puter.ai.speech2txt(blob, {
-      provider: "openai",
-      model: "gpt-4o-transcribe",
-      language: lang.code,
-      response_format: "json",
-      prompt:
-        "This is a personal AI assistant called Limitra AI, created by Paras Dahake. " +
-        "Recognize the exact product name 'Limitra AI'. " +
-        "The speaker may use Indian English, Hindi, Marathi, or mixed language. " +
-        "Preserve the speaker's wording and do not invent words."
-    });
+    // Give Puter a real File with a filename as well as the original Blob.
+    // Some mobile browser/Puter combinations handle File uploads more reliably.
+    const fileType = blob.type || "audio/webm";
+    const extension = fileType.includes("mp4") ? "mp4" :
+                      fileType.includes("ogg") ? "ogg" : "webm";
+    const audioFile = new File(
+      [blob],
+      `limitra-voice.${extension}`,
+      { type: fileType }
+    );
 
-    const raw =
-      typeof result === "string"
-        ? result
-        : (result && (result.text || result.transcript)) || "";
+    const attempts = [
+      // Primary: highest-quality current transcription model.
+      {
+        file: audioFile,
+        provider: "openai",
+        model: "gpt-4o-transcribe",
+        language: lang.code,
+        prompt,
+        response_format: "json"
+      },
+      // Fallback: omit the language hint so the model can auto-detect mixed speech.
+      {
+        file: audioFile,
+        provider: "openai",
+        model: "gpt-4o-transcribe",
+        prompt,
+        response_format: "json"
+      },
+      // Compatibility fallback for browsers/providers that reject the newer model.
+      {
+        file: audioFile,
+        provider: "openai",
+        model: "whisper-1",
+        language: lang.code,
+        prompt,
+        response_format: "json"
+      }
+    ];
 
-    return normalizeLimitraTranscript(raw);
+    let lastError = null;
+
+    for (const options of attempts) {
+      try {
+        const result = await puter.ai.speech2txt(options);
+        const raw =
+          typeof result === "string"
+            ? result
+            : (result && (result.text || result.transcript)) || "";
+        const transcript = normalizeLimitraTranscript(raw);
+        if (transcript) return transcript;
+      } catch (error) {
+        lastError = error;
+        console.warn("Limitra AI STT attempt failed:", error);
+      }
+    }
+
+    throw lastError || new Error("Speech transcription returned no text.");
   }
 
   async function finishVoiceRecording(blob, fallbackText) {
@@ -1392,7 +1436,7 @@
         updateInputSize();
         input.focus();
       } else {
-        alert("Voice transcription failed. Please try again.");
+        alert("Voice transcription could not connect. Please check your internet connection and try again.");
       }
     } finally {
       setMicState(false, false);
