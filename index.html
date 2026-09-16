@@ -387,7 +387,17 @@
   </div>
 
 </div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
+<script>
+  const SUPABASE_URL = "https://yqltdbxbkeytspjveach.supabase.co";
+    const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_Oc6XcGdVGNfTEO_y6xt97g_Xw9e3slR";
+
+      const supabaseClient = window.supabase.createClient(
+          SUPABASE_URL,
+              SUPABASE_PUBLISHABLE_KEY
+                );
+                </script>
 <script>
   const chat = document.getElementById("chat");
   const input = document.getElementById("input");
