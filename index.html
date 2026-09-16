@@ -5,1412 +5,1038 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Pocket AI</title>
 
-  <link rel="stylesheet" href="style.css">
   <script src="https://js.puter.com/v2/"></script>
 
   <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: #0f1014;
+      color: white;
+      font-family: Arial, sans-serif;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .app {
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
     .topbar {
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      padding:10px 14px;
+      height: 64px;
+      min-height: 64px;
+      background: #191a20;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      border-bottom: 1px solid #292b33;
+    }
+
+    .brand {
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: .3px;
     }
 
     .top-actions {
-      display:flex;
-      gap:8px;
-      align-items:center;
+      display: flex;
+      align-items: center;
+      gap: 7px;
     }
 
-    #newChat,
-    #historyButton,
-    #imageButton {
-      background:#272933;
-      color:white;
-      border:0;
-      border-radius:10px;
-      padding:9px 12px;
-      font-size:14px;
+    button {
+      font-family: inherit;
+      cursor: pointer;
     }
 
-    #historyButton,
-    #imageButton {
-      font-size:18px;
+    .action-btn {
+      background: #272933;
+      color: white;
+      border: 0;
+      border-radius: 10px;
+      padding: 9px 11px;
+      font-size: 14px;
+    }
+
+    .action-btn:active {
+      transform: scale(.97);
+    }
+
+    #chat {
+      flex: 1;
+      overflow-y: auto;
+      padding: 22px 16px 130px;
+      scroll-behavior: smooth;
+    }
+
+    .welcome {
+      max-width: 700px;
+      margin: 55px auto 0;
+      text-align: center;
+      padding: 20px;
+    }
+
+    .robot {
+      font-size: 55px;
+      margin-bottom: 8px;
+    }
+
+    .welcome h1 {
+      margin: 0 0 8px;
+      font-size: 34px;
+    }
+
+    .welcome p {
+      margin: 0;
+      color: #aeb1bd;
+      font-size: 16px;
+    }
+
+    .message-row {
+      display: flex;
+      margin: 10px auto;
+      max-width: 850px;
+    }
+
+    .message-row.user {
+      justify-content: flex-end;
+    }
+
+    .message-row.bot {
+      justify-content: flex-start;
     }
 
     .message {
-      white-space:normal;
-      line-height:1.55;
+      max-width: 82%;
+      padding: 12px 15px;
+      border-radius: 16px;
+      line-height: 1.55;
+      font-size: 16px;
+      word-wrap: break-word;
+      overflow-wrap: anywhere;
     }
 
-    .message p {
-      margin:0 0 10px;
+    .user .message {
+      background: #30323d;
+      border-bottom-right-radius: 5px;
+    }
+
+    .bot .message {
+      background: #1b1d24;
+      border: 1px solid #292b34;
+      border-bottom-left-radius: 5px;
     }
 
     .message h1,
     .message h2,
     .message h3 {
-      margin:10px 0 8px;
-      line-height:1.25;
+      margin-top: 5px;
+      margin-bottom: 8px;
     }
 
-    .message h1 {
-      font-size:24px;
-    }
-
-    .message h2 {
-      font-size:21px;
-    }
-
-    .message h3 {
-      font-size:18px;
+    .message p {
+      margin: 6px 0;
     }
 
     .message ul,
     .message ol {
-      margin:6px 0 10px 22px;
-      padding:0;
+      padding-left: 24px;
+      margin: 8px 0;
     }
 
     .message li {
-      margin:4px 0;
+      margin: 4px 0;
+    }
+
+    .message strong {
+      font-weight: 800;
     }
 
     .message code {
-      background:#30323c;
-      padding:2px 6px;
-      border-radius:5px;
-      font-family:monospace;
+      background: #111218;
+      padding: 2px 5px;
+      border-radius: 5px;
     }
 
     .message pre {
-      background:#17181e;
-      border:1px solid #30313a;
-      border-radius:10px;
-      padding:12px;
-      overflow-x:auto;
-      margin:10px 0;
-    }
-
-    .message pre code {
-      background:transparent;
-      padding:0;
-      white-space:pre;
+      background: #0b0c10;
+      padding: 12px;
+      border-radius: 10px;
+      overflow-x: auto;
     }
 
     .generated-image {
-      display:block;
-      width:100%;
-      max-width:520px;
-      border-radius:14px;
-      margin-top:8px;
+      width: 100%;
+      max-width: 620px;
+      display: block;
+      border-radius: 14px;
+      margin-top: 5px;
     }
 
     .image-caption {
-      margin-top:8px;
-      opacity:.75;
-      font-size:13px;
+      color: #aeb1bd;
+      font-size: 13px;
+      margin-top: 8px;
     }
 
     .typing {
-      opacity:.7;
+      color: #aeb1bd;
+      font-style: italic;
     }
 
-    #historyPanel {
-      position:fixed;
-      top:0;
-      left:-310px;
-      width:290px;
-      height:100%;
-      background:#17181e;
-      z-index:1000;
-      transition:left .25s ease;
-      box-shadow:4px 0 20px rgba(0,0,0,.35);
-      overflow-y:auto;
+    .composer-area {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(
+        transparent,
+        #0f1014 25%
+      );
+      padding: 25px 12px 14px;
     }
 
-    #historyPanel.open {
-      left:0;
+    .mode-label {
+      max-width: 850px;
+      margin: 0 auto 6px;
+      color: #aeb1bd;
+      font-size: 13px;
+      padding-left: 5px;
+      display: none;
     }
 
-    .history-header {
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      padding:18px;
-      border-bottom:1px solid #30313a;
-      color:white;
-      font-size:20px;
-      font-weight:bold;
+    .mode-label.active {
+      display: block;
     }
 
-    #closeHistory {
-      background:none;
-      border:0;
-      color:white;
-      font-size:25px;
+    .composer {
+      max-width: 850px;
+      margin: auto;
+      background: #191a20;
+      border: 1px solid #30323b;
+      border-radius: 17px;
+      display: flex;
+      align-items: flex-end;
+      padding: 8px;
+      gap: 7px;
+      box-shadow: 0 8px 35px rgba(0,0,0,.35);
     }
 
-    #historyList {
-      padding:10px;
+    #input {
+      flex: 1;
+      resize: none;
+      min-height: 44px;
+      max-height: 130px;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: white;
+      padding: 11px 9px;
+      font-size: 16px;
+      font-family: inherit;
+    }
+
+    #input::placeholder {
+      color: #777b88;
+    }
+
+    #sendButton {
+      width: 44px;
+      height: 44px;
+      border: 0;
+      border-radius: 13px;
+      background: #ffffff;
+      color: #111218;
+      font-size: 19px;
+      font-weight: bold;
+    }
+
+    #sendButton:disabled {
+      opacity: .45;
+    }
+
+    .image-mode {
+      background: #6d4aff !important;
+      color: white !important;
+    }
+
+    .panel {
+      position: fixed;
+      top: 72px;
+      right: 10px;
+      width: min(340px, calc(100vw - 20px));
+      max-height: 70vh;
+      overflow-y: auto;
+      background: #191a20;
+      border: 1px solid #30323b;
+      border-radius: 15px;
+      padding: 12px;
+      z-index: 20;
+      box-shadow: 0 15px 45px rgba(0,0,0,.5);
+      display: none;
+    }
+
+    .panel.open {
+      display: block;
+    }
+
+    .panel h3 {
+      margin: 5px 5px 12px;
     }
 
     .history-item {
-      width:100%;
-      box-sizing:border-box;
-      background:#24262f;
-      color:white;
-      border:0;
-      border-radius:10px;
-      padding:13px;
-      margin-bottom:8px;
-      text-align:left;
-      font-size:15px;
+      background: #24262f;
+      padding: 10px;
+      border-radius: 10px;
+      margin: 6px 0;
+      cursor: pointer;
+      font-size: 14px;
     }
 
     .history-item:active {
-      background:#333641;
+      transform: scale(.98);
     }
 
     .empty-history {
-      color:#999;
-      text-align:center;
-      padding:30px 15px;
+      color: #9296a3;
+      padding: 10px 5px;
+      font-size: 14px;
     }
 
-    #historyOverlay {
-      position:fixed;
-      inset:0;
-      background:rgba(0,0,0,.45);
-      z-index:999;
-      display:none;
+    .clear-btn {
+      width: 100%;
+      margin-top: 8px;
+      background: #30323d;
+      color: white;
+      border: 0;
+      padding: 10px;
+      border-radius: 9px;
     }
 
-    #historyOverlay.open {
-      display:block;
+    @media (max-width: 600px) {
+      .brand {
+        font-size: 25px;
+      }
+
+      .action-btn {
+        padding: 8px 9px;
+      }
+
+      .message {
+        max-width: 90%;
+      }
+
+      #chat {
+        padding-left: 10px;
+        padding-right: 10px;
+      }
     }
   </style>
 </head>
 
 <body>
 
-  <div id="historyOverlay"></div>
-
-  <aside id="historyPanel">
-    <div class="history-header">
-      <span>🗂️ Chat History</span>
-      <button id="closeHistory">×</button>
-    </div>
-
-    <div id="historyList"></div>
-  </aside>
+<div class="app">
 
   <header class="topbar">
-    <span>🤖 Pocket AI</span>
+    <div class="brand">Pocket AI</div>
 
     <div class="top-actions">
-      <button id="imageButton">🎨</button>
-      <button id="historyButton">🗂️</button>
-      <button id="newChat">＋ New Chat</button>
+      <button class="action-btn" id="imageButton" title="Image Generation">🎨</button>
+      <button class="action-btn" id="historyButton" title="Chat History">🗂️</button>
+      <button class="action-btn" id="newChat">New Chat</button>
     </div>
   </header>
 
   <main id="chat">
     <div class="welcome" id="welcome">
-      <h1>How can I help you?</h1>
-      <p>Created by Paras Dahake</p>
+      <div class="robot">🤖</div>
+      <h1>Hi, I'm Pocket AI</h1>
+      <p>Ask me anything.</p>
     </div>
   </main>
 
-  <div class="input-area">
-    <input
-      id="messageInput"
-      type="text"
-      placeholder="Message Pocket AI..."
-      autocomplete="off"
-    >
-
-    <button id="sendButton">➤</button>
+  <div class="panel" id="historyPanel">
+    <h3>🗂️ Chat History</h3>
+    <div id="historyList"></div>
+    <button class="clear-btn" id="clearHistory">Clear History</button>
   </div>
 
-  <script>
+  <div class="composer-area">
 
-    /* =========================
-       ELEMENTS
-    ========================= */
+    <div class="mode-label" id="modeLabel">
+      🎨 Image Generation Mode
+    </div>
 
-    const chat =
-      document.getElementById("chat");
+    <div class="composer">
+      <textarea
+        id="input"
+        placeholder="Message Pocket AI..."
+        rows="1"
+      ></textarea>
 
-    const input =
-      document.getElementById("messageInput");
+      <button id="sendButton" title="Send">➤</button>
+    </div>
 
-    const sendButton =
-      document.getElementById("sendButton");
+  </div>
 
-    const newChat =
-      document.getElementById("newChat");
+</div>
 
-    const imageButton =
-      document.getElementById("imageButton");
+<script>
+  const chat = document.getElementById("chat");
+  const input = document.getElementById("input");
+  const sendButton = document.getElementById("sendButton");
+  const newChatButton = document.getElementById("newChat");
+  const historyButton = document.getElementById("historyButton");
+  const historyPanel = document.getElementById("historyPanel");
+  const historyList = document.getElementById("historyList");
+  const clearHistory = document.getElementById("clearHistory");
+  const imageButton = document.getElementById("imageButton");
+  const modeLabel = document.getElementById("modeLabel");
+  const welcome = document.getElementById("welcome");
 
-    const historyButton =
-      document.getElementById("historyButton");
+  let imageMode = false;
+  let currentChat = [];
+  let isBusy = false;
 
-    const historyPanel =
-      document.getElementById("historyPanel");
+  const MEMORY_KEY = "pocket_ai_memory";
+  const HISTORY_KEY = "pocket_ai_history";
+  const CURRENT_CHAT_KEY = "pocket_ai_current_chat";
 
-    const historyOverlay =
-      document.getElementById("historyOverlay");
+  function getMemory() {
+    try {
+      return JSON.parse(localStorage.getItem(MEMORY_KEY) || "{}");
+    } catch {
+      return {};
+    }
+  }
 
-    const closeHistory =
-      document.getElementById("closeHistory");
+  function saveMemory(memory) {
+    localStorage.setItem(MEMORY_KEY, JSON.stringify(memory));
+  }
 
-    const historyList =
-      document.getElementById("historyList");
+  function getHistory() {
+    try {
+      return JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
+    } catch {
+      return [];
+    }
+  }
 
+  function saveHistory(history) {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+  }
 
-    /* =========================
-       CHAT HISTORY
-    ========================= */
+  function escapeHtml(text) {
+    const div = document.createElement("div");
+    div.textContent = text;
+    return div.innerHTML;
+  }
 
-    let chats = JSON.parse(
-      localStorage.getItem("pocketAI_chats") || "[]"
+  function formatMarkdown(text) {
+    let html = escapeHtml(text);
+
+    html = html.replace(
+      /```([\s\S]*?)```/g,
+      "<pre><code>$1</code></pre>"
     );
 
-    let currentChatId =
-      localStorage.getItem("pocketAI_current_chat");
-
-
-    /* =========================
-       MEMORY
-    ========================= */
-
-    let memories = JSON.parse(
-      localStorage.getItem("pocketAI_memories") || "[]"
+    html = html.replace(
+      /^### (.*)$/gm,
+      "<h3>$1</h3>"
     );
 
+    html = html.replace(
+      /^## (.*)$/gm,
+      "<h2>$1</h2>"
+    );
 
-    /* =========================
-       CREATE CHAT
-    ========================= */
+    html = html.replace(
+      /^# (.*)$/gm,
+      "<h1>$1</h1>"
+    );
 
-    function createChat() {
+    html = html.replace(
+      /\*\*(.*?)\*\*/g,
+      "<strong>$1</strong>"
+    );
 
-      const id =
-        Date.now().toString();
+    html = html.replace(
+      /`([^`]+)`/g,
+      "<code>$1</code>"
+    );
 
-      const newConversation = {
-        id:id,
-        title:"New Chat",
-        messages:[]
-      };
+    html = html.replace(
+      /^\s*[-*]\s+(.*)$/gm,
+      "<li>$1</li>"
+    );
 
-      chats.unshift(newConversation);
+    html = html.replace(
+      /(<li>.*<\/li>)/gs,
+      "<ul>$1</ul>"
+    );
 
-      currentChatId = id;
+    html = html.replace(
+      /\n\n+/g,
+      "</p><p>"
+    );
 
-      saveChats();
+    html = "<p>" + html + "</p>";
 
-      return newConversation;
+    html = html.replace(
+      /<p>(<h[1-3]>)/g,
+      "$1"
+    );
+
+    html = html.replace(
+      /(<\/h[1-3]>)<\/p>/g,
+      "$1"
+    );
+
+    html = html.replace(
+      /<p>(<ul>)/g,
+      "$1"
+    );
+
+    html = html.replace(
+      /(<\/ul>)<\/p>/g,
+      "$1"
+    );
+
+    html = html.replace(
+      /<p><pre>/g,
+      "<pre>"
+    );
+
+    html = html.replace(
+      /<\/pre><\/p>/g,
+      "</pre>"
+    );
+
+    return html;
+  }
+
+  function addMessage(role, text, save = true) {
+    if (welcome) {
+      welcome.style.display = "none";
     }
 
+    const row = document.createElement("div");
+    row.className = "message-row " + role;
 
-    /* =========================
-       CURRENT CHAT
-    ========================= */
+    const bubble = document.createElement("div");
+    bubble.className = "message";
 
-    function getCurrentChat() {
-
-      return chats.find(
-        item => item.id === currentChatId
-      );
-
+    if (role === "bot") {
+      bubble.innerHTML = formatMarkdown(text);
+    } else {
+      bubble.textContent = text;
     }
 
-
-    /* =========================
-       SAVE CHATS
-    ========================= */
-
-    function saveChats() {
-
-      localStorage.setItem(
-        "pocketAI_chats",
-        JSON.stringify(chats)
-      );
-
-      localStorage.setItem(
-        "pocketAI_current_chat",
-        currentChatId || ""
-      );
-
-    }
-
-
-    /* =========================
-       OLD CHAT MIGRATION
-    ========================= */
-
-    function migrateOldChat() {
-
-      const oldMessages = JSON.parse(
-        localStorage.getItem("pocketAI_messages") || "[]"
-      );
-
-      if (
-        chats.length === 0 &&
-        oldMessages.length > 0
-      ) {
-
-        const migrated = {
-          id:Date.now().toString(),
-
-          title:
-            oldMessages[0]?.content
-              ? oldMessages[0].content.slice(0,35)
-              : "Previous Chat",
-
-          messages:oldMessages
-        };
-
-        chats.push(migrated);
-
-        currentChatId =
-          migrated.id;
-
-        saveChats();
-
-        localStorage.removeItem(
-          "pocketAI_messages"
-        );
-
-      }
-
-    }
-
-    migrateOldChat();
-
-    if (!getCurrentChat()) {
-      createChat();
-    }
-
-
-    /* =========================
-       HTML SAFETY
-    ========================= */
-
-    function escapeHTML(text) {
-
-      return String(text)
-        .replace(/&/g,"&amp;")
-        .replace(/</g,"&lt;")
-        .replace(/>/g,"&gt;")
-        .replace(/"/g,"&quot;")
-        .replace(/'/g,"&#039;");
-
-    }
-
-
-    /* =========================
-       MARKDOWN
-    ========================= */
-
-    function formatInline(text) {
-
-      let safe =
-        escapeHTML(text);
-
-      const codeParts = [];
-
-      safe = safe.replace(
-        /`([^`]+)`/g,
-        function(match,code) {
-
-          const index =
-            codeParts.length;
-
-          codeParts.push(code);
-
-          return "___CODE_" +
-            index +
-            "___";
-
-        }
-      );
-
-      safe = safe.replace(
-        /\*\*(.*?)\*\*/g,
-        "<strong>$1</strong>"
-      );
-
-      safe = safe.replace(
-        /(?<!\*)\*([^*]+)\*(?!\*)/g,
-        "<em>$1</em>"
-      );
-
-      safe = safe.replace(
-        /___CODE_(\d+)___/g,
-        function(match,index) {
-
-          return "<code>" +
-            codeParts[index] +
-            "</code>";
-
-        }
-      );
-
-      return safe;
-    }
-
-
-    function formatText(text) {
-
-      const lines =
-        String(text).split("\n");
-
-      let html = "";
-
-      let inCodeBlock = false;
-
-      let codeContent = "";
-
-      let inBulletList = false;
-
-      let inNumberList = false;
-
-
-      function closeLists() {
-
-        if (inBulletList) {
-
-          html += "</ul>";
-
-          inBulletList = false;
-
-        }
-
-        if (inNumberList) {
-
-          html += "</ol>";
-
-          inNumberList = false;
-
-        }
-
-      }
-
-
-      for (let i=0;i<lines.length;i++) {
-
-        const originalLine =
-          lines[i];
-
-        if (
-          originalLine.trim().startsWith("```")
-        ) {
-
-          if (!inCodeBlock) {
-
-            closeLists();
-
-            inCodeBlock = true;
-
-            codeContent = "";
-
-          } else {
-
-            html +=
-              "<pre><code>" +
-              escapeHTML(codeContent) +
-              "</code></pre>";
-
-            inCodeBlock = false;
-
-            codeContent = "";
-
-          }
-
-          continue;
-        }
-
-
-        if (inCodeBlock) {
-
-          codeContent +=
-            originalLine + "\n";
-
-          continue;
-
-        }
-
-
-        const line =
-          originalLine.trim();
-
-
-        if (line === "") {
-
-          closeLists();
-
-          continue;
-
-        }
-
-
-        if (line.startsWith("# ")) {
-
-          closeLists();
-
-          html +=
-            "<h1>" +
-            formatInline(line.substring(2)) +
-            "</h1>";
-
-          continue;
-
-        }
-
-
-        if (line.startsWith("## ")) {
-
-          closeLists();
-
-          html +=
-            "<h2>" +
-            formatInline(line.substring(3)) +
-            "</h2>";
-
-          continue;
-
-        }
-
-
-        if (line.startsWith("### ")) {
-
-          closeLists();
-
-          html +=
-            "<h3>" +
-            formatInline(line.substring(4)) +
-            "</h3>";
-
-          continue;
-
-        }
-
-
-        if (/^[-*]\s+/.test(line)) {
-
-          if (!inBulletList) {
-
-            if (inNumberList) {
-
-              html += "</ol>";
-
-              inNumberList = false;
-
-            }
-
-            html += "<ul>";
-
-            inBulletList = true;
-
-          }
-
-          html +=
-            "<li>" +
-            formatInline(
-              line.replace(
-                /^[-*]\s+/,
-                ""
-              )
-            ) +
-            "</li>";
-
-          continue;
-
-        }
-
-
-        if (/^\d+\.\s+/.test(line)) {
-
-          if (!inNumberList) {
-
-            if (inBulletList) {
-
-              html += "</ul>";
-
-              inBulletList = false;
-
-            }
-
-            html += "<ol>";
-
-            inNumberList = true;
-
-          }
-
-          html +=
-            "<li>" +
-            formatInline(
-              line.replace(
-                /^\d+\.\s+/,
-                ""
-              )
-            ) +
-            "</li>";
-
-          continue;
-
-        }
-
-
-        closeLists();
-
-        html +=
-          "<p>" +
-          formatInline(line) +
-          "</p>";
-
-      }
-
-
-      closeLists();
-
-
-      if (inCodeBlock) {
-
-        html +=
-          "<pre><code>" +
-          escapeHTML(codeContent) +
-          "</code></pre>";
-
-      }
-
-
-      return html;
-
-    }
-
-
-    /* =========================
-       DISPLAY TEXT MESSAGE
-    ========================= */
-
-    function addMessage(text,type) {
-
-      const welcome =
-        document.getElementById("welcome");
-
-      if (welcome) {
-        welcome.remove();
-      }
-
-
-      const message =
-        document.createElement("div");
-
-      message.className =
-        "message " + type;
-
-      message.innerHTML =
-        formatText(text);
-
-      chat.appendChild(message);
-
-      chat.scrollTop =
-        chat.scrollHeight;
-
-      return message;
-
-    }
-
-
-    /* =========================
-       DISPLAY IMAGE
-    ========================= */
-
-    function addGeneratedImage(
-      imageSrc,
-      prompt
-    ) {
-
-      const welcome =
-        document.getElementById("welcome");
-
-      if (welcome) {
-        welcome.remove();
-      }
-
-
-      const message =
-        document.createElement("div");
-
-      message.className =
-        "message ai";
-
-
-      const image =
-        document.createElement("img");
-
-      image.className =
-        "generated-image";
-
-      image.src =
-        imageSrc;
-
-      image.alt =
-        "AI generated image";
-
-
-      const caption =
-        document.createElement("div");
-
-      caption.className =
-        "image-caption";
-
-      caption.textContent =
-        "🎨 Generated by Pocket AI";
-
-
-      message.appendChild(image);
-
-      message.appendChild(caption);
-
-      chat.appendChild(message);
-
-      chat.scrollTop =
-        chat.scrollHeight;
-
-      return message;
-
-    }
-
-
-    /* =========================
-       LOAD CHAT
-    ========================= */
-
-    function loadCurrentChat() {
-
-      chat.innerHTML = "";
-
-      const current =
-        getCurrentChat();
-
-
-      if (
-        !current ||
-        current.messages.length === 0
-      ) {
-
-        chat.innerHTML = `
-          <div class="welcome" id="welcome">
-            <h1>How can I help you?</h1>
-            <p>Created by Paras Dahake</p>
-          </div>
-        `;
-
-        return;
-
-      }
-
-
-      current.messages.forEach(item => {
-
-        if (item.type === "image") {
-
-          addMessage(
-            "🎨 Generated image: " +
-            item.prompt,
-            "ai"
-          );
-
-        } else {
-
-          addMessage(
-            item.content,
-            item.role === "user"
-              ? "user"
-              : "ai"
-          );
-
-        }
-
+    row.appendChild(bubble);
+    chat.appendChild(row);
+
+    if (save) {
+      currentChat.push({
+        role: role,
+        text: text,
+        type: "text"
       });
 
+      localStorage.setItem(
+        CURRENT_CHAT_KEY,
+        JSON.stringify(currentChat)
+      );
     }
 
+    chat.scrollTop = chat.scrollHeight;
 
-    /* =========================
-       MEMORY
-    ========================= */
+    return bubble;
+  }
 
-    function saveMemories() {
+  function addImageMessage(prompt, imageElement, save = true) {
+    if (welcome) {
+      welcome.style.display = "none";
+    }
+
+    const row = document.createElement("div");
+    row.className = "message-row bot";
+
+    const bubble = document.createElement("div");
+    bubble.className = "message";
+
+    const title = document.createElement("div");
+    title.innerHTML = "<strong>🎨 Generated Image</strong>";
+
+    imageElement.className = "generated-image";
+    imageElement.alt = prompt;
+
+    const caption = document.createElement("div");
+    caption.className = "image-caption";
+    caption.textContent = prompt;
+
+    bubble.appendChild(title);
+    bubble.appendChild(imageElement);
+    bubble.appendChild(caption);
+
+    row.appendChild(bubble);
+    chat.appendChild(row);
+
+    if (save) {
+      currentChat.push({
+        role: "bot",
+        text: "🎨 Image generated: " + prompt,
+        type: "image"
+      });
 
       localStorage.setItem(
-        "pocketAI_memories",
-        JSON.stringify(memories)
+        CURRENT_CHAT_KEY,
+        JSON.stringify(currentChat)
+      );
+    }
+
+    chat.scrollTop = chat.scrollHeight;
+  }
+
+  function addTyping() {
+    const row = document.createElement("div");
+    row.className = "message-row bot";
+    row.id = "typingMessage";
+
+    const bubble = document.createElement("div");
+    bubble.className = "message typing";
+    bubble.textContent = "Pocket AI is thinking...";
+
+    row.appendChild(bubble);
+    chat.appendChild(row);
+
+    chat.scrollTop = chat.scrollHeight;
+  }
+
+  function removeTyping() {
+    const typing = document.getElementById("typingMessage");
+    if (typing) {
+      typing.remove();
+    }
+  }
+
+  function updateMemoryFromConversation(userText, aiText) {
+    const memory = getMemory();
+
+    const combined = (userText + " " + aiText).toLowerCase();
+
+    const nameMatch =
+      userText.match(
+        /(?:my name is|i am|i'm|call me)\s+([a-zA-Z][a-zA-Z ]{1,30})/i
       );
 
+    if (nameMatch) {
+      memory.name = nameMatch[1].trim();
     }
 
+    if (
+      combined.includes("my name is paras") ||
+      combined.includes("my name is paras dahake")
+    ) {
+      memory.name = "Paras";
+    }
 
-    function detectMemory(text) {
+    memory.updatedAt = Date.now();
 
-      const patterns = [
+    saveMemory(memory);
+  }
 
-        /my name is (.+)/i,
+  function buildConversationMessages(userText) {
+    const memory = getMemory();
 
-        /i am called (.+)/i,
+    let systemPrompt =
+      "You are Pocket AI, a helpful AI assistant created by Paras Dahake. " +
+      "Give clear, useful and friendly answers. " +
+      "Match the user's language naturally: English, Hindi, Marathi, " +
+      "or mixed language. Do not force one language. " +
+      "Use Markdown when it improves readability.";
 
-        /i'm called (.+)/i,
+    if (memory.name) {
+      systemPrompt +=
+        " The user's remembered name is " +
+        memory.name +
+        ".";
+    }
 
-        /i like (.+)/i,
+    const messages = [
+      {
+        role: "system",
+        content: systemPrompt
+      }
+    ];
 
-        /i love (.+)/i,
+    for (const item of currentChat.slice(-12)) {
+      if (item.type === "text") {
+        messages.push({
+          role: item.role === "user" ? "user" : "assistant",
+          content: item.text
+        });
+      }
+    }
 
-        /my favorite (.+)/i,
+    messages.push({
+      role: "user",
+      content: userText
+    });
 
-        /remember that (.+)/i,
+    return messages;
+  }
 
-        /remember this (.+)/i,
+  async function sendChatMessage(prompt) {
+    addMessage("user", prompt);
+    addTyping();
 
-        /माझं नाव (.+)/i,
+    try {
+      const messages = buildConversationMessages(prompt);
 
-        /माझे नाव (.+)/i,
+      const response = await puter.ai.chat(messages);
 
-        /मला (.+) आवडतं/i,
+      removeTyping();
 
-        /मुझे (.+) पसंद है/i,
+      let answer = "";
 
-        /मेरा नाम (.+) है/i
-
-      ];
-
-
-      for (const pattern of patterns) {
-
-        const match =
-          text.match(pattern);
-
-
-        if (
-          match &&
-          match[0] &&
-          match[0].trim().length > 2
-        ) {
-
-          const memory =
-            match[0].trim();
-
-
-          const exists =
-            memories.some(
-              item =>
-                item.toLowerCase() ===
-                memory.toLowerCase()
-            );
-
-
-          if (!exists) {
-
-            memories.push(memory);
-
-            saveMemories();
-
-          }
-
-          break;
-
+      if (typeof response === "string") {
+        answer = response;
+      } else if (response && response.message) {
+        if (typeof response.message.content === "string") {
+          answer = response.message.content;
+        } else if (Array.isArray(response.message.content)) {
+          answer = response.message.content
+            .map(x => x.text || "")
+            .join("");
         }
-
       }
 
-    }
-
-
-    function buildMemoryContext() {
-
-      if (!memories.length) {
-
-        return "No saved personal memories yet.";
-
+      if (!answer) {
+        answer = "I couldn't generate a response. Please try again.";
       }
 
+      addMessage("bot", answer);
 
-      return memories
-        .slice(-20)
-        .map(
-          (memory,index) =>
-            `${index + 1}. ${memory}`
-        )
-        .join("\n");
+      updateMemoryFromConversation(prompt, answer);
 
-    }
-
-
-    /* =========================
-       NORMAL CHAT
-    ========================= */
-
-    async function sendMessage() {
-
-      const text =
-        input.value.trim();
-
-
-      if (
-        !text ||
-        sendButton.disabled
-      ) {
-
-        return;
-
-      }
-
-
-      const current =
-        getCurrentChat();
-
-
-      if (!current) {
-        return;
-      }
-
+      updateHistory();
+    } catch (error) {
+      removeTyping();
 
       addMessage(
-        text,
-        "user"
+        "bot",
+        "Sorry, something went wrong while getting the AI response. Please try again."
       );
 
+      console.error(error);
+    }
+  }
 
-      current.messages.push({
-        role:"user",
-        content:text
+  async function generateImage(prompt) {
+    addMessage("user", "🎨 " + prompt);
+    addTyping();
+
+    try {
+      /*
+        REAL IMAGE GENERATION
+        This is intentionally separate from puter.ai.chat().
+      */
+
+      const image = await puter.ai.txt2img(prompt, {
+        quality: "low"
       });
 
+      removeTyping();
 
-      if (
-        current.title === "New Chat"
-      ) {
-
-        current.title =
-          text.slice(0,35);
-
-      }
-
-
-      detectMemory(text);
-
-      saveChats();
-
-
-      input.value = "";
-
-      sendButton.disabled = true;
-
-
-      const thinking =
+      if (image) {
+        addImageMessage(prompt, image);
+      } else {
         addMessage(
-          "Thinking...",
-          "ai"
+          "bot",
+          "The image was not returned. Please try again."
         );
-
-
-      thinking.classList.add(
-        "typing"
-      );
-
-
-      try {
-
-        const systemPrompt = `
-You are Pocket AI, a helpful, friendly and intelligent AI assistant created by Paras Dahake.
-
-Match the user's language naturally.
-
-You can communicate in English, Hindi, Marathi, or mixed language.
-
-Use the saved memory below when relevant.
-
-Do not mention the memory system unless the user asks about it.
-
-Saved memories:
-${buildMemoryContext()}
-
-Give clear, useful and natural answers.
-
-Use Markdown when helpful:
-- Use **bold** for important words.
-- Use *italic* for emphasis.
-- Use #, ## or ### for headings.
-- Use bullet lists.
-- Use numbered lists.
-- Use code blocks with triple backticks when showing code.
-`;
-
-        const response =
-          await puter.ai.chat([
-            {
-              role:"system",
-              content:systemPrompt
-            },
-            ...current.messages
-          ]);
-
-
-        let answer = "";
-
-
-        if (
-          typeof response === "string"
-        ) {
-
-          answer = response;
-
-        } else if (
-          response &&
-          response.message
-        ) {
-
-          answer =
-            response.message.content || "";
-
-        } else {
-
-          answer =
-            String(response || "");
-
-        }
-
-
-        thinking.remove();
-
-
-        addMessage(
-          answer,
-          "ai"
-        );
-
-
-        current.messages.push({
-          role:"assistant",
-          content:answer
-        });
-
-
-        saveChats();
-
-        renderHistory();
-
-
-      } catch (error) {
-
-        thinking.textContent =
-          "Sorry, I couldn't respond right now. Please try again.";
-
       }
 
+      updateHistory();
 
-      sendButton.disabled = false;
+    } catch (error) {
+      removeTyping();
 
-      input.focus();
+      addMessage(
+        "bot",
+        "I couldn't generate that image right now. Please try another prompt."
+      );
 
+      console.error(error);
+    }
+  }
+
+  async function sendMessage() {
+    if (isBusy) return;
+
+    const prompt = input.value.trim();
+
+    if (!prompt) return;
+
+    input.value = "";
+    input.style.height = "44px";
+
+    isBusy = true;
+    sendButton.disabled = true;
+
+    if (imageMode) {
+      await generateImage(prompt);
+    } else {
+      await sendChatMessage(prompt);
     }
 
+    isBusy = false;
+    sendButton.disabled = false;
+    input.focus();
+  }
 
-    /* =========================
-       IMAGE GENERATION
-    ========================= */
+  function toggleImageMode() {
+    imageMode = !imageMode;
 
-    async function generateImage() {
-
-      const prompt =
-        input.value.trim();
-
-
-      if (!prompt) {
-
-        input.focus();
-
-        return;
-
-      }
-
-
-      const current =
-        getCurrentChat();
-
-
-      if (!current) {
-        return;
-      }
-
-
-      input.value = "";
-
-      imageButton.disabled = true;
-
-      sendButton.disabled = true;
-
-
-      const status =
-        addMessage(
-          "🎨 Creating your image...",
-          "ai"
-        );
-
-
-      status.classList.add(
-        "typing"
-      );
-
-
-      try {
-
-        const image =
-          await puter.ai.txt2img(
-            prompt
-          );
-
-
-        status.remove();
-
-
-        addGeneratedImage(
-          image.src,
-          prompt
-        );
-
-
-        current.messages.push({
-          role:"user",
-          content:"🎨 Generate image: " + prompt
-        });
-
-
-        current.messages.push({
-          role:"assistant",
-          type:"image",
-          prompt:prompt
-        });
-
-
-        if (
-          current.title === "New Chat"
-        ) {
-
-          current.title =
-            "🎨 " +
-            prompt.slice(0,30);
-
-        }
-
-
-        saveChats();
-
-        renderHistory();
-
-
-      } catch (error) {
-
-        status.textContent =
-          "Sorry, I couldn't generate that image right now. Please try again.";
-
-      }
-
-
-      imageButton.disabled = false;
-
-      sendButton.disabled = false;
-
-      input.focus();
-
+    if (imageMode) {
+      imageButton.classList.add("image-mode");
+      modeLabel.classList.add("active");
+      input.placeholder = "Describe the image you want...";
+    } else {
+      imageButton.classList.remove("image-mode");
+      modeLabel.classList.remove("active");
+      input.placeholder = "Message Pocket AI...";
     }
-
-
-    /* =========================
-       NEW CHAT
-    ========================= */
-
-    newChat.addEventListener(
-      "click",
-      function() {
-
-        createChat();
-
-        loadCurrentChat();
-
-        renderHistory();
-
-        closeHistoryPanel();
-
-        input.focus();
-
-      }
-    );
-
-
-    /* =========================
-       IMAGE BUTTON
-    ========================= */
-
-    imageButton.addEventListener(
-      "click",
-      generateImage
-    );
-
-
-    /* =========================
-       HISTORY
-    ========================= */
-
-    function renderHistory() {
-
-      historyList.innerHTML = "";
-
-
-      if (!chats.length) {
-
-        historyList.innerHTML =
-          '<div class="empty-history">No chats yet.</div>';
-
-        return;
-
-      }
-
-
-      chats.forEach(item => {
-
-        const button =
-          document.createElement("button");
-
-
-        button.className =
-          "history-item";
-
-
-        button.textContent =
-          item.title || "New Chat";
-
-
-        button.addEventListener(
-          "click",
-          function() {
-
-            currentChatId =
-              item.id;
-
-            saveChats();
-
-            loadCurrentChat();
-
-            closeHistoryPanel();
-
-            input.focus();
-
-          }
-        );
-
-
-        historyList.appendChild(
-          button
-        );
-
-      });
-
-    }
-
-
-    function openHistoryPanel() {
-
-      historyPanel.classList.add(
-        "open"
-      );
-
-      historyOverlay.classList.add(
-        "open"
-      );
-
-      renderHistory();
-
-    }
-
-
-    function closeHistoryPanel() {
-
-      historyPanel.classList.remove(
-        "open"
-      );
-
-      historyOverlay.classList.remove(
-        "open"
-      );
-
-    }
-
-
-    historyButton.addEventListener(
-      "click",
-      openHistoryPanel
-    );
-
-
-    closeHistory.addEventListener(
-      "click",
-      closeHistoryPanel
-    );
-
-
-    historyOverlay.addEventListener(
-      "click",
-      closeHistoryPanel
-    );
-
-
-    /* =========================
-       SEND BUTTON
-    ========================= */
-
-    sendButton.addEventListener(
-      "click",
-      sendMessage
-    );
-
-
-    /* =========================
-       ENTER
-    ========================= */
-
-    input.addEventListener(
-      "keydown",
-      function(event) {
-
-        if (
-          event.key === "Enter"
-        ) {
-
-          sendMessage();
-
-        }
-
-      }
-    );
-
-
-    /* =========================
-       START
-    ========================= */
-
-    loadCurrentChat();
-
-    renderHistory();
 
     input.focus();
+  }
 
-  </script>
+  function startNewChat() {
+    currentChat = [];
+
+    localStorage.removeItem(CURRENT_CHAT_KEY);
+
+    chat.innerHTML = `
+      <div class="welcome" id="welcome">
+        <div class="robot">🤖</div>
+        <h1>Hi, I'm Pocket AI</h1>
+        <p>Ask me anything.</p>
+      </div>
+    `;
+
+    imageMode = false;
+    imageButton.classList.remove("image-mode");
+    modeLabel.classList.remove("active");
+    input.placeholder = "Message Pocket AI...";
+
+    historyPanel.classList.remove("open");
+
+    input.focus();
+  }
+
+  function saveHistoryItem() {
+    if (!currentChat.length) return;
+
+    const firstUserMessage = currentChat.find(
+      item => item.role === "user"
+    );
+
+    if (!firstUserMessage) return;
+
+    const history = getHistory();
+
+    const item = {
+      id: Date.now(),
+      title: firstUserMessage.text.slice(0, 60),
+      messages: currentChat
+    };
+
+    history.unshift(item);
+
+    saveHistory(history.slice(0, 30));
+  }
+
+  function updateHistory() {
+    const history = getHistory();
+
+    if (currentChat.length) {
+      const firstUserMessage = currentChat.find(
+        item => item.role === "user"
+      );
+
+      if (firstUserMessage) {
+        const existingIndex = history.findIndex(
+          item =>
+            item.messages &&
+            item.messages.length &&
+            item.messages[0].text === firstUserMessage.text
+        );
+
+        const currentItem = {
+          id: existingIndex >= 0
+            ? history[existingIndex].id
+            : Date.now(),
+          title: firstUserMessage.text.slice(0, 60),
+          messages: currentChat
+        };
+
+        if (existingIndex >= 0) {
+          history[existingIndex] = currentItem;
+        } else {
+          history.unshift(currentItem);
+        }
+
+        saveHistory(history.slice(0, 30));
+      }
+    }
+
+    renderHistory();
+  }
+
+  function renderHistory() {
+    const history = getHistory();
+
+    historyList.innerHTML = "";
+
+    if (!history.length) {
+      historyList.innerHTML =
+        '<div class="empty-history">No chat history yet.</div>';
+      return;
+    }
+
+    history.forEach(item => {
+      const div = document.createElement("div");
+      div.className = "history-item";
+      div.textContent = item.title || "Chat";
+
+      div.addEventListener("click", () => {
+        loadHistoryItem(item);
+        historyPanel.classList.remove("open");
+      });
+
+      historyList.appendChild(div);
+    });
+  }
+
+  function loadHistoryItem(item) {
+    currentChat = item.messages || [];
+
+    chat.innerHTML = "";
+
+    currentChat.forEach(message => {
+      if (message.type === "image") {
+        addMessage(
+          "bot",
+          message.text +
+          "\n\nThe generated image is not stored in browser history."
+        , false);
+      } else {
+        addMessage(
+          message.role,
+          message.text,
+          false
+        );
+      }
+    });
+
+    localStorage.setItem(
+      CURRENT_CHAT_KEY,
+      JSON.stringify(currentChat)
+    );
+
+    chat.scrollTop = chat.scrollHeight;
+  }
+
+  function loadCurrentChat() {
+    try {
+      const saved = JSON.parse(
+        localStorage.getItem(CURRENT_CHAT_KEY) || "[]"
+      );
+
+      if (!Array.isArray(saved) || !saved.length) {
+        return;
+      }
+
+      currentChat = saved;
+      chat.innerHTML = "";
+
+      currentChat.forEach(message => {
+        if (message.type === "image") {
+          addMessage(
+            "bot",
+            message.text +
+            "\n\nThe generated image is not stored in browser history.",
+            false
+          );
+        } else {
+          addMessage(
+            message.role,
+            message.text,
+            false
+          );
+        }
+      });
+    } catch {
+      currentChat = [];
+    }
+  }
+
+  sendButton.addEventListener("click", sendMessage);
+
+  input.addEventListener("keydown", event => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      sendMessage();
+    }
+  });
+
+  input.addEventListener("input", () => {
+    input.style.height = "44px";
+    input.style.height =
+      Math.min(input.scrollHeight, 130) + "px";
+  });
+
+  imageButton.addEventListener(
+    "click",
+    toggleImageMode
+  );
+
+  newChatButton.addEventListener(
+    "click",
+    startNewChat
+  );
+
+  historyButton.addEventListener("click", () => {
+    historyPanel.classList.toggle("open");
+    renderHistory();
+  });
+
+  clearHistory.addEventListener("click", () => {
+    localStorage.removeItem(HISTORY_KEY);
+    renderHistory();
+  });
+
+  document.addEventListener("click", event => {
+    if (
+      historyPanel.classList.contains("open") &&
+      !historyPanel.contains(event.target) &&
+      event.target !== historyButton
+    ) {
+      historyPanel.classList.remove("open");
+    }
+  });
+
+  loadCurrentChat();
+  renderHistory();
+  input.focus();
+</script>
 
 </body>
 </html>
