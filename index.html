@@ -1127,7 +1127,7 @@
 
   sendButton.addEventListener("click", sendMessage);
 
-  // Limitra AI v14 voice input.
+  // Limitra AI v17 voice input.
   // Hybrid mode:
   // 1) Browser SpeechRecognition shows words LIVE while the user speaks.
   // 2) MediaRecorder captures the same audio.
@@ -1185,6 +1185,17 @@
       micButton.title = "Voice input";
       micButton.setAttribute("aria-label", "Voice input");
     }
+  }
+
+  // Keep the composer height in sync after voice transcription.
+  // Some older Limitra AI builds did not define this helper, which caused
+  // a successful transcription to be reported as a voice error afterward.
+  function updateInputSize() {
+    if (!input) return;
+    input.style.height = "auto";
+    const maxHeight = 180;
+    input.style.height = Math.min(input.scrollHeight, maxHeight) + "px";
+    input.style.overflowY = input.scrollHeight > maxHeight ? "auto" : "hidden";
   }
 
   function cleanVoiceText(text) {
