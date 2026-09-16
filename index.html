@@ -51,6 +51,43 @@
       letter-spacing: .3px;
     }
 
+    .menu-btn {
+      width: 46px;
+      height: 46px;
+      border: 1px solid #343640;
+      border-radius: 12px;
+      background: #191a20;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      cursor: pointer;
+      flex: 0 0 auto;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .menu-btn span {
+      display: block;
+      width: 22px;
+      height: 2.5px;
+      border-radius: 99px;
+      background: #f5f5f7;
+      transition: transform .18s ease, opacity .18s ease;
+    }
+
+    .menu-btn.active span:nth-child(1) {
+      transform: translateY(7.5px) rotate(45deg);
+    }
+
+    .menu-btn.active span:nth-child(2) {
+      opacity: 0;
+    }
+
+    .menu-btn.active span:nth-child(3) {
+      transform: translateY(-7.5px) rotate(-45deg);
+    }
+
     .top-actions {
       display: flex;
       align-items: center;
@@ -346,8 +383,8 @@
 
     .panel {
       position: fixed;
-      top: 72px;
-      right: 10px;
+      top: 74px;
+      left: 10px;
       width: min(340px, calc(100vw - 20px));
       max-height: 70vh;
       overflow-y: auto;
@@ -423,6 +460,12 @@
 <div class="app">
 
   <header class="topbar">
+    <button class="menu-btn" id="menuButton" title="Menu" aria-label="Open menu" aria-expanded="false">
+      <span></span>
+      <span></span>
+      <span></span>
+    </button>
+
     <div class="brand">Limitra AI</div>
 
     <div class="top-actions">
@@ -439,7 +482,7 @@
   </main>
 
   <div class="panel" id="historyPanel">
-    <h3>🗂️ Chat History</h3>
+    <h3>Chat History</h3>
     <div id="historyList"></div>
     <button class="clear-btn" id="clearHistory">Clear History</button>
   </div>
@@ -479,6 +522,7 @@
   const sendButton = document.getElementById("sendButton");
   const micButton = document.getElementById("micButton");
   const newChatButton = document.getElementById("newChat");
+  const menuButton = document.getElementById("menuButton");
   const historyPanel = document.getElementById("historyPanel");
   const historyList = document.getElementById("historyList");
   const clearHistory = document.getElementById("clearHistory");
@@ -877,6 +921,8 @@
     `;
 
     historyPanel.classList.remove("open");
+    menuButton.classList.remove("active");
+    menuButton.setAttribute("aria-expanded", "false");
 
     input.focus();
   }
@@ -959,6 +1005,8 @@
       div.addEventListener("click", () => {
         loadHistoryItem(item);
         historyPanel.classList.remove("open");
+        menuButton.classList.remove("active");
+        menuButton.setAttribute("aria-expanded", "false");
       });
 
       historyList.appendChild(div);
@@ -1235,6 +1283,15 @@
       Math.min(input.scrollHeight, 130) + "px";
   });
 
+  menuButton.addEventListener("click", event => {
+    event.stopPropagation();
+
+    const willOpen = !historyPanel.classList.contains("open");
+    historyPanel.classList.toggle("open", willOpen);
+    menuButton.classList.toggle("active", willOpen);
+    menuButton.setAttribute("aria-expanded", String(willOpen));
+  });
+
   newChatButton.addEventListener(
     "click",
     startNewChat
@@ -1248,9 +1305,13 @@
   document.addEventListener("click", event => {
     if (
       historyPanel.classList.contains("open") &&
-      !historyPanel.contains(event.target)
+      !historyPanel.contains(event.target) &&
+      event.target !== menuButton &&
+      !menuButton.contains(event.target)
     ) {
       historyPanel.classList.remove("open");
+      menuButton.classList.remove("active");
+      menuButton.setAttribute("aria-expanded", "false");
     }
   });
 
