@@ -1019,19 +1019,45 @@
 
   sendButton.addEventListener("click", sendMessage);
 
-  // Limitra AI voice input — uses the browser's built-in Speech Recognition.
+  // Limitra AI improved voice input.
+  // Uses the browser's built-in Speech Recognition with:
+  // - continuous listening
+  // - interim results
+  // - automatic restart after the browser pauses/stops recognition
+  // - language selection based on the device/browser language
   const SpeechRecognition =
     window.SpeechRecognition || window.webkitSpeechRecognition;
 
   let recognition = null;
   let isListening = false;
+  let userStoppedListening = false;
   let speechBaseText = "";
+  let restartTimer = null;
+
+  function getSpeechLanguage() {
+    const lang = (navigator.language || "").toLowerCase();
+
+    if (lang.startsWith("mr")) return "mr-IN";
+    if (lang.startsWith("hi")) return "hi-IN";
+    if (lang.startsWith("en")) return "en-IN";
+
+    return "en-IN";
+  }
+
+  function resizeVoiceInput() {
+    input.style.height = "44px";
+    input.style.height = Math.min(input.scrollHeight, 130) + "px";
+  }
 
   if (SpeechRecognition) {
     recognition = new SpeechRecognition();
-    recognition.continuous = false;
+
+    // Important for longer speech. Android browsers can still stop
+    // recognition after silence, so onend below automatically restarts it.
+    recognition.continuous = true;
     recognition.interimResults = true;
-    recognition.lang = navigator.language || "en-US";
+    recognition.maxAlternatives = 1;
+    recognition.lang = getSpeechLanguage();
 
     recognition.onstart = () => {
       isListening = true;
@@ -1045,35 +1071,80 @@
       let interimText = "";
 
       for (let i = event.resultIndex; i < event.results.length; i++) {
-        const transcript = event.results[i][0].transcript;
+        const transcript = event.results[i][0].transcript.trim();
+
         if (event.results[i].isFinal) {
-          finalText += transcript;
+          finalText += (finalText ? " " : "") + transcript;
         } else {
-          interimText += transcript;
+          interimText += (interimText ? " " : "") + transcript;
         }
       }
 
-      const combined = [speechBaseText, finalText, interimText]
+      const combined = [
+        speechBaseText,
+        finalText,
+        interimText
+      ]
         .filter(Boolean)
         .join(" ")
         .replace(/\s+/g, " ")
         .trim();
 
       input.value = combined;
-      input.style.height = "44px";
-      input.style.height = Math.min(input.scrollHeight, 130) + "px";
+      resizeVoiceInput();
+      chat.scrollTop = chat.scrollHeight;
     };
 
     recognition.onerror = event => {
-      if (event.error === "not-allowed" || event.error === "service-not-allowed") {
-        alert("Microphone permission is required for Limitra AI voice input.");
-      } else if (event.error !== "aborted" && event.error !== "no-speech") {
-        alert("Limitra AI could not hear the microphone. Please try again.");
+      // These errors can happen normally while continuous recognition
+      // is being restarted, so don't interrupt the user with alerts.
+      if (
+        event.error === "aborted" ||
+        event.error === "no-speech" ||
+        event.error === "audio-capture"
+      ) {
+        return;
       }
+
+      if (
+        event.error === "not-allowed" ||
+        event.error === "service-not-allowed"
+      ) {
+        userStoppedListening = true;
+        isListening = false;
+        micButton.classList.remove("listening");
+        alert(
+          "Microphone permission is required for Limitra AI voice input."
+        );
+        return;
+      }
+
+      console.warn("Limitra AI speech recognition:", event.error);
     };
 
     recognition.onend = () => {
       isListening = false;
+
+      // If the browser stopped listening by itself, keep the mic active
+      // and restart recognition so longer sentences can continue.
+      if (!userStoppedListening) {
+        speechBaseText = input.value.trim();
+
+        clearTimeout(restartTimer);
+        restartTimer = setTimeout(() => {
+          if (!userStoppedListening && recognition) {
+            try {
+              recognition.lang = getSpeechLanguage();
+              recognition.start();
+            } catch (error) {
+              // A rapid restart can throw while the browser is changing state.
+            }
+          }
+        }, 250);
+
+        return;
+      }
+
       micButton.classList.remove("listening");
       micButton.title = "Voice input";
       micButton.setAttribute("aria-label", "Voice input");
@@ -1083,21 +1154,38 @@
 
   micButton.addEventListener("click", () => {
     if (!recognition) {
-      alert("Voice input is not supported by this browser. Try Chrome or another browser with Speech Recognition support.");
+      alert(
+        "Voice input is not supported by this browser. Try Chrome or another browser with Speech Recognition support."
+      );
       return;
     }
 
     if (isListening) {
-      recognition.stop();
+      userStoppedListening = true;
+      clearTimeout(restartTimer);
+
+      try {
+        recognition.stop();
+      } catch (error) {
+        // Ignore if recognition is already stopped.
+      }
+
+      isListening = false;
+      micButton.classList.remove("listening");
+      micButton.title = "Voice input";
+      micButton.setAttribute("aria-label", "Voice input");
+      input.focus();
       return;
     }
 
+    userStoppedListening = false;
     speechBaseText = input.value.trim();
-    recognition.lang = navigator.language || "en-US";
+    recognition.lang = getSpeechLanguage();
+
     try {
       recognition.start();
     } catch (error) {
-      // Ignore a duplicate start caused by a rapid double tap.
+      // Ignore duplicate starts caused by rapid taps.
     }
   });
 
@@ -1127,8 +1215,7 @@
   document.addEventListener("click", event => {
     if (
       historyPanel.classList.contains("open") &&
-      !historyPanel.contains(event.target) &&
-      event.target !== historyButton
+      !historyPanel.contains(event.target)
     ) {
       historyPanel.classList.remove("open");
     }
