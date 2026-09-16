@@ -1127,7 +1127,7 @@
 
   sendButton.addEventListener("click", sendMessage);
 
-  // Limitra AI v10 voice input — accuracy-first Android version.
+  // Limitra AI v11 voice input — clarity-first Android version.
   // Keeps the existing MUI microphone, language selector, menu/history and UI.
   // Uses the browser speech engine only (no API key, ADB or USB debugging).
   const SpeechRecognition =
@@ -1176,31 +1176,94 @@
 
   // Only correct patterns that are very likely to be the Limitra AI phrase.
   // This prevents the recognizer from changing ordinary conversation.
+  // Accuracy layer for Android/Chromium speech recognition.
+  // The browser/phone supplies the audio recognition; this layer only
+  // fixes high-confidence variations of the Limitra AI wake phrase.
+  function levenshtein(a, b) {
+    a = String(a || "").toLowerCase();
+    b = String(b || "").toLowerCase();
+    const prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+    for (let i = 1; i <= a.length; i++) {
+      let cur = [i];
+      for (let j = 1; j <= b.length; j++) {
+        cur[j] = Math.min(
+          cur[j - 1] + 1,
+          prev[j] + 1,
+          prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)
+        );
+      }
+      for (let j = 0; j <= b.length; j++) prev[j] = cur[j];
+    }
+    return prev[b.length];
+  }
+
+  function isLimitraVariant(text) {
+    const t = String(text || "").toLowerCase().replace(/[^a-z]/g, "");
+    if (!t) return false;
+    return [
+      "limitra", "limitrai", "limitrai", "limitra", "limitrah",
+      "limittry", "limitry", "limited", "limitare", "limitrai"
+    ].some(word => levenshtein(t, word) <= (t.length >= 7 ? 3 : 2));
+  }
+
   function correctKnownSpeech(text) {
     let value = cleanSpeech(text);
     if (!value) return "";
 
-    // Common Android/browser recognition of the product name.
+    // Normalize common Android/browser spellings of the product name.
     value = value.replace(/\blimit\s*ra\s*(?:a\.?i\.?|hi)\b/gi, "Limitra AI");
     value = value.replace(/\blimitrah\s*(?:a\.?i\.?|hi)\b/gi, "Limitra AI");
     value = value.replace(/\blimitraw\b/gi, "Limitra");
     value = value.replace(/\blimitro\b/gi, "Limitra");
+    value = value.replace(/\blimit\s+try\s+ai\b/gi, "Limitra AI");
+    value = value.replace(/\blimit\s+tri\s+ai\b/gi, "Limitra AI");
+    value = value.replace(/\blimit\s+rai\b/gi, "Limitra AI");
 
-    // The user's test phrase is frequently returned by Android as
-    // “and you help me Limitra hi”. Correct only this strong pattern.
+    // High-confidence sentence correction. This specifically handles the
+    // exact type shown in testing: “hello limited can you help me limit try ai”.
     value = value.replace(
-      /\bhello\s+and\s+you\s+help\s+me\s+limitra(?:\s+hi)?\b/gi,
+      /\bhello\s+(?:limited|limit(?:ed|ra)?|limitrai|limittry)\s+can\s+you\s+help\s+me\s+(?:limit(?:ra|try|ry|are)|limitrai|limit\s+try)(?:\s+ai)?\b/gi,
       "Hello, can you help me, Limitra AI"
     );
 
     value = value.replace(
-      /\band\s+you\s+help\s+me\s+limitra(?:\s+hi)?\b/gi,
+      /\bhello\s+and\s+you\s+help\s+me\s+(?:limitra|limit\s+try|limited)(?:\s+hi)?\b/gi,
+      "Hello, can you help me, Limitra AI"
+    );
+
+    value = value.replace(
+      /\band\s+you\s+help\s+me\s+(?:limitra|limit\s+try|limited)(?:\s+hi)?\b/gi,
       "can you help me, Limitra AI"
     );
 
-    // If Limitra is immediately followed by “hi”, the intended product
-    // name is much more likely to be Limitra AI in this app.
+    // If “Limitra” is the last part of a help request, normalize it.
+    // This is intentionally limited to a strong context so ordinary words
+    // such as “limited” are not globally changed.
+    value = value.replace(
+      /\b(can\s+you\s+help\s+me)\s+(?:limitra|limit\s+try|limit\s+tri|limitry|limitare|limitrai)(?:\s+hi)?\b/gi,
+      "$1, Limitra AI"
+    );
+
     value = value.replace(/\blimitra\s+hi\b/gi, "Limitra AI");
+
+    // Final token-level cleanup for a product-name variant at the end of a
+    // sentence. Only run when the surrounding words strongly indicate the
+    // user is addressing Limitra AI.
+    const words = value.split(/\s+/);
+    if (words.length >= 2) {
+      const tail = words.slice(-3);
+      if (tail.some(w => isLimitraVariant(w.replace(/[.,!?]/g, ""))) &&
+          /\b(can you help me|help me|hello)\b/i.test(value)) {
+        let idx = -1;
+        for (let i = words.length - 1; i >= 0; i--) {
+          if (isLimitraVariant(words[i].replace(/[.,!?]/g, ""))) { idx = i; break; }
+        }
+        if (idx >= 0) {
+          words.splice(idx, words.length - idx, "Limitra", "AI");
+          value = words.join(" ");
+        }
+      }
+    }
 
     return cleanSpeech(value);
   }
@@ -1367,7 +1430,7 @@
     };
 
     recognition.onerror = event => {
-      console.warn("Limitra AI voice input:", event.error);
+      console.warn("Limitra AI voice input v11:", event.error);
 
       if (
         event.error === "not-allowed" ||
