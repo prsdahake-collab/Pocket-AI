@@ -1106,14 +1106,9 @@
 
   sendButton.addEventListener("click", sendMessage);
 
-  // Limitra AI v5 voice input.
-  // More resilient Android speech capture:
-  // - continuous recognition
-  // - interim results
-  // - multiple alternatives
-  // - automatic restart after silence/browser timeouts
-  // - preserves all final text across restarts
-  // - avoids losing text already typed
+  // Limitra AI v7 voice input.
+  // Prevents repeated words/phrases when Android speech recognition sends
+  // overlapping results or restarts after a pause.
   const SpeechRecognition =
     window.SpeechRecognition || window.webkitSpeechRecognition;
 
@@ -1125,26 +1120,17 @@
   let interimSpeechText = "";
   let restartTimer = null;
   let watchdogTimer = null;
+  let lastFinalChunk = "";
 
   function getSpeechLanguage() {
     const languages = [
       ...(navigator.languages || []),
       navigator.language || ""
-    ].map(value => String(value).toLowerCase());
+    ].map(v => String(v).toLowerCase());
 
-    // Prefer an explicitly Marathi/Hindi browser language.
     if (languages.some(lang => lang.startsWith("mr"))) return "mr-IN";
     if (languages.some(lang => lang.startsWith("hi"))) return "hi-IN";
-
-    // Indian English is the default for this project.
-    if (languages.some(lang => lang.startsWith("en"))) return "en-IN";
-
     return "en-IN";
-  }
-
-  function updateInputSize() {
-    input.style.height = "44px";
-    input.style.height = Math.min(input.scrollHeight, 130) + "px";
   }
 
   function normalizeSpeech(text) {
@@ -1153,30 +1139,76 @@
       .trim();
   }
 
-  function renderSpeechText() {
-    const parts = [
-      speechBaseText,
-      finalSpeechText,
-      interimSpeechText
-    ]
-      .map(normalizeSpeech)
-      .filter(Boolean);
+  function words(text) {
+    return normalizeSpeech(text).split(" ").filter(Boolean);
+  }
 
-    input.value = parts.join(" ");
+  // Appends a speech chunk while removing overlap with the text already
+  // captured. This is the important anti-duplication layer for Android.
+  function appendSpeechChunk(existing, incoming) {
+    existing = normalizeSpeech(existing);
+    incoming = normalizeSpeech(incoming);
+
+    if (!incoming) return existing;
+    if (!existing) return incoming;
+
+    const a = words(existing);
+    const b = words(incoming);
+
+    // Exact duplicate.
+    if (incoming.toLowerCase() === existing.toLowerCase()) return existing;
+
+    // If the new chunk is already contained at the end, don't add it.
+    const existingLower = existing.toLowerCase();
+    const incomingLower = incoming.toLowerCase();
+    if (existingLower.endsWith(incomingLower)) return existing;
+
+    // Remove the largest suffix/prefix overlap (up to 12 words).
+    const max = Math.min(12, a.length, b.length);
+    for (let n = max; n >= 1; n--) {
+      const suffix = a.slice(-n).join(" ").toLowerCase();
+      const prefix = b.slice(0, n).join(" ").toLowerCase();
+      if (suffix === prefix) {
+        return normalizeSpeech(
+          existing + " " + b.slice(n).join(" ").join(" ")
+        );
+      }
+    }
+
+    // Ignore a short immediate repeat such as "hello hello" caused by
+    // recognition bouncing between interim/final states.
+    if (b.length <= 4) {
+      const tail = a.slice(-b.length).join(" ").toLowerCase();
+      if (tail === incomingLower) return existing;
+    }
+
+    return normalizeSpeech(existing + " " + incoming);
+  }
+
+  function updateInputSize() {
+    input.style.height = "44px";
+    input.style.height = Math.min(input.scrollHeight, 130) + "px";
+  }
+
+  function renderSpeechText() {
+    const combined = normalizeSpeech(
+      [speechBaseText, finalSpeechText, interimSpeechText]
+        .filter(Boolean)
+        .join(" ")
+    );
+
+    input.value = combined;
     updateInputSize();
     input.dispatchEvent(new Event("input", { bubbles: true }));
     chat.scrollTop = chat.scrollHeight;
   }
 
   function commitCurrentSpeech() {
-    const combined = normalizeSpeech([
-      speechBaseText,
-      finalSpeechText
-    ].filter(Boolean).join(" "));
-
-    speechBaseText = combined;
+    speechBaseText = appendSpeechChunk(speechBaseText, finalSpeechText);
+    speechBaseText = appendSpeechChunk(speechBaseText, interimSpeechText);
     finalSpeechText = "";
     interimSpeechText = "";
+    lastFinalChunk = "";
     renderSpeechText();
   }
 
@@ -1206,21 +1238,13 @@
       recognition.lang = getSpeechLanguage();
       recognition.start();
 
-      // If Android/browser silently fails to enter the started state,
-      // try once more rather than leaving the mic apparently active.
       clearTimeout(watchdogTimer);
       watchdogTimer = setTimeout(() => {
         if (!isListening && !userStoppedListening) {
-          try {
-            recognition.start();
-          } catch (error) {
-            // Browser is already transitioning; onend will retry.
-          }
+          try { recognition.start(); } catch (_) {}
         }
       }, 1400);
-    } catch (error) {
-      // Duplicate start/state-transition errors are expected on some Android browsers.
-    }
+    } catch (_) {}
   }
 
   function scheduleRecognitionRestart() {
@@ -1231,15 +1255,14 @@
       if (!userStoppedListening && !isListening) {
         startRecognition();
       }
-    }, 300);
+    }, 350);
   }
 
   if (SpeechRecognition) {
     recognition = new SpeechRecognition();
-
     recognition.continuous = true;
     recognition.interimResults = true;
-    recognition.maxAlternatives = 3;
+    recognition.maxAlternatives = 1;
     recognition.lang = getSpeechLanguage();
 
     recognition.onstart = () => {
@@ -1248,47 +1271,29 @@
       setMicListening();
     };
 
-    recognition.onaudiostart = () => {
-      setMicListening();
-    };
-
-    recognition.onspeechstart = () => {
-      setMicListening();
-    };
-
     recognition.onresult = event => {
       let interim = "";
 
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const result = event.results[i];
-
-        let bestTranscript = "";
-        let bestConfidence = -1;
-
-        for (let j = 0; j < result.length; j++) {
-          const candidate = normalizeSpeech(result[j].transcript);
-          const confidence =
-            typeof result[j].confidence === "number"
-              ? result[j].confidence
-              : 0;
-
-          if (candidate && confidence >= bestConfidence) {
-            bestTranscript = candidate;
-            bestConfidence = confidence;
-          }
-        }
-
-        if (!bestTranscript) continue;
+        const transcript = normalizeSpeech(
+          result[0] ? result[0].transcript : ""
+        );
+        if (!transcript) continue;
 
         if (result.isFinal) {
-          finalSpeechText = normalizeSpeech(
-            [finalSpeechText, bestTranscript].filter(Boolean).join(" ")
-          );
-          interim = "";
+          // Append only the genuinely new portion.
+          finalSpeechText = appendSpeechChunk(finalSpeechText, transcript);
+
+          // If Android repeats the exact final phrase on the next event,
+          // discard it rather than adding it again.
+          if (finalSpeechText.toLowerCase() === lastFinalChunk.toLowerCase()) {
+            finalSpeechText = lastFinalChunk;
+          } else {
+            lastFinalChunk = finalSpeechText;
+          }
         } else {
-          interim = normalizeSpeech(
-            [interim, bestTranscript].filter(Boolean).join(" ")
-          );
+          interim = appendSpeechChunk(interim, transcript);
         }
       }
 
@@ -1311,19 +1316,7 @@
         return;
       }
 
-      // These commonly occur during Android/browser pauses.
-      // Keep the session alive instead of showing an error popup.
-      if (
-        event.error === "no-speech" ||
-        event.error === "aborted" ||
-        event.error === "audio-capture" ||
-        event.error === "network"
-      ) {
-        commitCurrentSpeech();
-        scheduleRecognitionRestart();
-        return;
-      }
-
+      commitCurrentSpeech();
       scheduleRecognitionRestart();
     };
 
@@ -1332,7 +1325,8 @@
       clearTimeout(watchdogTimer);
 
       if (!userStoppedListening) {
-        // Save everything before restarting so no words disappear.
+        // Commit before restarting so the next Android recognition session
+        // starts cleanly and cannot replay the previous session's text.
         commitCurrentSpeech();
         scheduleRecognitionRestart();
         return;
@@ -1353,15 +1347,10 @@
     }
 
     if (isListening) {
-      // User explicitly stopped listening.
       userStoppedListening = true;
       clearVoiceTimers();
 
-      try {
-        recognition.stop();
-      } catch (error) {
-        // Already stopped.
-      }
+      try { recognition.stop(); } catch (_) {}
 
       commitCurrentSpeech();
       isListening = false;
@@ -1370,11 +1359,11 @@
       return;
     }
 
-    // Start/continue a voice session.
     userStoppedListening = false;
     speechBaseText = normalizeSpeech(input.value);
     finalSpeechText = "";
     interimSpeechText = "";
+    lastFinalChunk = "";
     clearVoiceTimers();
 
     setMicListening();
