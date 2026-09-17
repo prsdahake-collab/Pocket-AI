@@ -895,7 +895,7 @@
       speakButton.title = "Read this answer aloud";
       speakButton.setAttribute("aria-label", "Read this answer aloud");
       speakButton.addEventListener("click", async () => {
-        if (currentTtsButton === speakButton && currentTtsAudio) {
+        if (currentTtsButton === speakButton && currentTtsUtterance) {
           stopVoiceReply();
           return;
         }
@@ -1068,41 +1068,56 @@
     return window.puter;
   }
 
-  async function callPuterChat(chatPrompt, model, timeoutMs = 30000) {
+  async function callPuterChat(chatPrompt, timeoutMs = 45000) {
     const puterApi = await waitForPuter();
+
+    if (!puterApi.ai || typeof puterApi.ai.chat !== "function") {
+      throw new Error("Puter AI chat is not available.");
+    }
+
     const request = puterApi.ai.chat(chatPrompt, {
-      model,
+      model: "gpt-5.6-luna",
       normalize: true
     });
 
     return await Promise.race([
       request,
       new Promise((_, reject) =>
-        setTimeout(() => reject(new Error(model + " timed out")), timeoutMs)
+        setTimeout(() => reject(new Error("GPT-5.6 Luna timed out after 45 seconds.")), timeoutMs)
       )
     ]);
   }
 
   function extractChatAnswer(response) {
-    if (typeof response === "string") return response.trim();
+    if (!response) return "";
 
-    if (response?.message) {
-      const content = response.message.content;
-
-      if (typeof content === "string") return content.trim();
-
-      if (Array.isArray(content)) {
-        return content
-          .map(item => {
-            if (typeof item === "string") return item;
-            return item?.text || item?.content || "";
-          })
-          .join("")
-          .trim();
-      }
+    if (typeof response === "string") {
+      return response.trim();
     }
 
-    if (typeof response?.text === "string") return response.text.trim();
+    const content = response?.message?.content;
+
+    if (typeof content === "string") {
+      return content.trim();
+    }
+
+    if (Array.isArray(content)) {
+      return content
+        .map(item => {
+          if (typeof item === "string") return item;
+          return item?.text || item?.content || "";
+        })
+        .join("")
+        .trim();
+    }
+
+    if (typeof response?.text === "string") {
+      return response.text.trim();
+    }
+
+    if (typeof response?.content === "string") {
+      return response.content.trim();
+    }
 
     return "";
   }
@@ -1113,28 +1128,15 @@
 
     try {
       const chatPrompt = buildConversationPrompt(prompt);
-      let response = null;
-      let lastError = null;
-
-      // Try the requested smart model first. If it is temporarily unavailable,
-      // automatically fall back to Puter's default fast model instead of leaving
-      // the chat blank.
-      for (const model of ["gpt-5.6-luna", "gpt-5-nano"]) {
-        try {
-          response = await callPuterChat(chatPrompt, model, 30000);
-          if (extractChatAnswer(response)) break;
-        } catch (error) {
-          lastError = error;
-          console.warn("Limitra AI model failed:", model, error);
-        }
-      }
+      const response = await callPuterChat(chatPrompt, 45000);
 
       removeTyping();
 
       const answer = extractChatAnswer(response);
 
       if (!answer) {
-        throw lastError || new Error("AI returned an empty response");
+        console.error("Limitra AI received an unexpected Puter response:", response);
+        throw new Error("Puter returned no text in the AI response.");
       }
 
       const answerBubble = addMessage("bot", answer);
@@ -1357,7 +1359,7 @@
 
   // Limitra AI v24 — live voice input + AI voice replies with persistent waveform icon.
   // 1) Live SpeechRecognition puts words into the composer immediately.
-  // Voice replies use Puter text-to-speech only.
+  // Voice replies use the free browser/device speechSynthesis API.
   const voiceLangButton = document.getElementById("voiceLang");
   const voiceLanguages = [
     { code: "en-IN", label: "EN", name: "English (India)" },
@@ -1704,6 +1706,11 @@
   loadCurrentChat();
   renderHistory();
   input.focus();
+
+  // Startup diagnostic: this does not block the app.
+  if (!window.puter) {
+    console.warn("Limitra AI: Puter.js is not available yet; it will be checked again when a message is sent.");
+  }
 </script>
 </body>
 </html>
