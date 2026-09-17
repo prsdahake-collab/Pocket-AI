@@ -761,23 +761,17 @@
     return html;
   }
 
-  let currentTtsAudio = null;
+  let currentTtsUtterance = null;
   let currentTtsButton = null;
-  let autoVoiceReply = true;
 
-  function speechPlainText(text) {
-    return String(text || "")
-      .replace(/```[\s\S]*?```/g, " ")
-      .replace(/`([^`]+)`/g, "$1")
-      .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
-      .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
-      .replace(/[*_~>#-]+/g, " ")
-      .replace(/\n+/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
+  if ("speechSynthesis" in window) {
+    try {
+      window.speechSynthesis.getVoices();
+      window.speechSynthesis.onvoiceschanged = () => {
+        try { window.speechSynthesis.getVoices(); } catch (_) {}
+      };
+    } catch (_) {}
   }
-
-  const VOICE_OUTPUT_ICON = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMjAgNzAiPjxkZWZzPjxmaWx0ZXIgaWQ9ImciIHg9Ii0zMCUiIHk9Ii01MCUiIHdpZHRoPSIxNjAlIiBoZWlnaHQ9IjIwMCUiPjxmZUdhdXNzaWFuQmx1ciBzdGREZXZpYXRpb249IjIuNSIgcmVzdWx0PSJiIi8+PGZlTWVyZ2U+PGZlTWVyZ2VOb2RlIGluPSJiIi8+PGZlTWVyZ2VOb2RlIGluPSJTb3VyY2VHcmFwaGljIi8+PC9mZU1lcmdlPjwvZmlsdGVyPjwvZGVmcz48cGF0aCBkPSJNMyAzNSBMMTUgMzUgTDIyIDI4IEwyOSA0MiBMMzYgMjQgTDQzIDQ4IEw1MCAxNSBMNTcgNTYgTDY0IDkgTDcxIDYxIEw3OCAxOCBMODUgNTIgTDkyIDI3IEw5OSA0MCBMMTA4IDMxIEwxMTcgMzUiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2Y0ZmJmZiIgc3Ryb2tlLXdpZHRoPSI0IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiIGZpbHRlcj0idXJsKCNnKSIvPjxwYXRoIGQ9Ik0zIDM1IEwxNSAzNSBMMjIgMjggTDI5IDQyIEwzNiAyNCBMNDMgNDggTDUwIDE1IEw1NyA1NiBMNjQgOSBMNzEgNjEgTDc4IDE4IEw4NSA1MiBMOTIgMjcgTDk5IDQwIEwxMDggMzEgTDExNyAzNSIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjYmZlZWZmIiBzdHJva2Utd2lkdGg9IjIuMiIgc3Ryb2tlLWxpbmVjY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPjwvc3ZnPg==';
 
   function setSpeakButtonState(button, speaking) {
     if (!button) return;
@@ -788,57 +782,76 @@
   }
 
   function stopVoiceReply() {
-    if (currentTtsAudio) {
-      try { currentTtsAudio.pause(); } catch (_) {}
-      try { currentTtsAudio.currentTime = 0; } catch (_) {}
-      currentTtsAudio = null;
+    if ("speechSynthesis" in window) {
+      try { window.speechSynthesis.cancel(); } catch (_) {}
     }
+    currentTtsUtterance = null;
     if (currentTtsButton) setSpeakButtonState(currentTtsButton, false);
     currentTtsButton = null;
   }
 
   async function speakText(text, button = null) {
     const speech = speechPlainText(text).slice(0, 2950);
-    if (!speech) return false;
-
-    if (currentTtsAudio) {
-      stopVoiceReply();
-      if (button && currentTtsButton === null) return true;
+    if (!speech || !("speechSynthesis" in window) || typeof SpeechSynthesisUtterance === "undefined") {
+      if (button) setSpeakButtonState(button, false);
+      return false;
     }
+
+    // Stop any previous reply so repeated taps never queue multiple voices.
+    stopVoiceReply();
 
     currentTtsButton = button;
     setSpeakButtonState(button, true);
 
     try {
-      const audio = await puter.ai.txt2speech(speech, {
-        provider: "elevenlabs",
-        voice: "OSwaPSNdfituxkWcjlkR",
-        model: "eleven_multilingual_v2",
-        output_format: "mp3"
-      });
+      const devanagari = (speech.match(/[\\u0900-\\u097F]/g) || []).length;
+      const latin = (speech.match(/[A-Za-z]/g) || []).length;
+      let lang = "en-IN";
+      if (devanagari > latin * 0.15) {
+        // Marathi/Hindi both use Devanagari. Prefer Marathi when the text
+        // contains common Marathi markers; otherwise use Hindi.
+        const marathiMarkers = /[ळऱ]/u.test(speech) || /\\b(आहे|आणि|काय|तुम्ही|मला|माझे|करू|होते|नाही|मध्ये|साठी)\\b/u.test(speech);
+        lang = marathiMarkers ? "mr-IN" : "hi-IN";
+      }
 
-      currentTtsAudio = audio;
-      audio.onended = () => {
-        if (currentTtsAudio === audio) currentTtsAudio = null;
+      const voices = window.speechSynthesis.getVoices ? window.speechSynthesis.getVoices() : [];
+      const voice =
+        voices.find(v => v.lang === lang) ||
+        voices.find(v => v.lang && v.lang.toLowerCase().startsWith(lang.slice(0, 2).toLowerCase())) ||
+        voices.find(v => v.lang === "en-IN") ||
+        voices.find(v => v.lang && v.lang.toLowerCase().startsWith("en")) ||
+        null;
+
+      const utterance = new SpeechSynthesisUtterance(speech);
+      utterance.lang = lang;
+      if (voice) utterance.voice = voice;
+      utterance.rate = 0.96;
+      utterance.pitch = 1.0;
+      utterance.volume = 1.0;
+
+      currentTtsUtterance = utterance;
+
+      utterance.onend = () => {
+        if (currentTtsUtterance === utterance) currentTtsUtterance = null;
         if (currentTtsButton === button) {
           setSpeakButtonState(button, false);
           currentTtsButton = null;
         }
       };
-      audio.onerror = () => {
-        if (currentTtsAudio === audio) currentTtsAudio = null;
+
+      utterance.onerror = () => {
+        if (currentTtsUtterance === utterance) currentTtsUtterance = null;
         if (currentTtsButton === button) {
           setSpeakButtonState(button, false);
           currentTtsButton = null;
         }
       };
 
-      await audio.play();
+      window.speechSynthesis.speak(utterance);
       return true;
     } catch (error) {
-      console.warn("Limitra AI Puter voice reply failed:", error);
-      if (currentTtsAudio) currentTtsAudio = null;
-
+      console.warn("Limitra AI browser voice reply failed:", error);
+      currentTtsUtterance = null;
       setSpeakButtonState(button, false);
       currentTtsButton = null;
       return false;
