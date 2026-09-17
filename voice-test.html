@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Limitra AI — Voice Test</title>
+
+  <script src="https://js.puter.com/v2/"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: #0f1014;
+      color: white;
+      font-family: Arial, sans-serif;
+      padding: 24px;
+    }
+
+    .box {
+      max-width: 700px;
+      margin: auto;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 32px;
+      margin-bottom: 8px;
+    }
+
+    .sub {
+      text-align: center;
+      color: #aaa;
+      margin-bottom: 28px;
+    }
+
+    .card {
+      background: #191a20;
+      border-radius: 18px;
+      padding: 20px;
+      margin-bottom: 18px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 10px;
+      font-weight: bold;
+    }
+
+    input[type="file"] {
+      width: 100%;
+      padding: 12px;
+      background: #0f1014;
+      color: white;
+      border-radius: 12px;
+      border: 1px solid #333;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 90px;
+      resize: vertical;
+      background: #0f1014;
+      color: white;
+      border: 1px solid #333;
+      border-radius: 12px;
+      padding: 14px;
+      font-size: 16px;
+    }
+
+    button {
+      width: 100%;
+      border: 0;
+      border-radius: 14px;
+      padding: 14px;
+      margin-top: 12px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      background: white;
+      color: black;
+    }
+
+    button:disabled {
+      opacity: 0.5;
+    }
+
+    .voice {
+      background: #111218;
+      border: 1px solid #292b35;
+      border-radius: 14px;
+      padding: 15px;
+      margin-top: 12px;
+    }
+
+    .voice-name {
+      font-size: 17px;
+      font-weight: bold;
+    }
+
+    .voice-info {
+      color: #999;
+      font-size: 13px;
+      margin-top: 5px;
+      line-height: 1.4;
+    }
+
+    .status {
+      text-align: center;
+      color: #8fdcff;
+      margin: 15px 0;
+      min-height: 22px;
+    }
+
+    audio {
+      width: 100%;
+      margin-top: 12px;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="box">
+
+  <h1>Limitra AI</h1>
+  <div class="sub">Voice Match Tester</div>
+
+  <div class="card">
+    <label>Your voice sample</label>
+    <input id="audioFile" type="file" accept="audio/*">
+  </div>
+
+  <div class="card">
+    <label>Test sentence</label>
+
+    <textarea id="text">Hello, I am Limitra AI. How can I help you today?</textarea>
+
+    <button id="loadVoices">
+      Find Available Voices
+    </button>
+
+    <div id="status" class="status"></div>
+  </div>
+
+  <div class="card">
+    <h2>Available ElevenLabs Voices</h2>
+    <div id="voices"></div>
+  </div>
+
+</div>
+
+<script>
+
+const audioFile = document.getElementById("audioFile");
+const loadButton = document.getElementById("loadVoices");
+const voicesBox = document.getElementById("voices");
+const statusBox = document.getElementById("status");
+
+let voices = [];
+
+loadButton.addEventListener("click", async () => {
+
+  try {
+
+    statusBox.textContent = "Finding available voices...";
+    loadButton.disabled = true;
+
+    voices = await puter.ai.txt2speech.listVoices({
+      provider: "elevenlabs"
+    });
+
+    voicesBox.innerHTML = "";
+
+    if (!voices || voices.length === 0) {
+      voicesBox.innerHTML =
+        "<p>No ElevenLabs voices were returned.</p>";
+
+      statusBox.textContent = "";
+      loadButton.disabled = false;
+      return;
+    }
+
+    /*
+      Show voices that have useful metadata first.
+      We are NOT assuming the voice is similar.
+      We will audition them.
+    */
+
+    const sorted = [...voices].sort((a, b) => {
+
+      const aText = (
+        (a.name || "") + " " +
+        (a.description || "") + " " +
+        JSON.stringify(a.labels || "")
+      ).toLowerCase();
+
+      const bText = (
+        (b.name || "") + " " +
+        (b.description || "") + " " +
+        JSON.stringify(b.labels || "")
+      ).toLowerCase();
+
+      const keywords = [
+        "young",
+        "youth",
+        "male",
+        "boy",
+        "teen",
+        "energetic",
+        "hero",
+        "anime",
+        "bright",
+        "action"
+      ];
+
+      const score = text =>
+        keywords.reduce(
+          (n, word) => n + (text.includes(word) ? 1 : 0),
+          0
+        );
+
+      return score(bText) - score(aText);
+    });
+
+    /*
+      Start with the first 30 candidates so the page
+      does not become enormous.
+    */
+
+    sorted.slice(0, 30).forEach((voice) => {
+
+      const div = document.createElement("div");
+      div.className = "voice";
+
+      const name =
+        voice.name || voice.id || "Unnamed voice";
+
+      const description =
+        voice.description || "No description available.";
+
+      div.innerHTML = `
+        <div class="voice-name">${escapeHtml(name)}</div>
+
+        <div class="voice-info">
+          Provider: ${escapeHtml(voice.provider || "ElevenLabs")}<br>
+          ID: ${escapeHtml(voice.id || "unknown")}<br>
+          ${escapeHtml(description)}
+        </div>
+
+        <button class="testButton">
+          Test This Voice
+        </button>
+
+        <audio class="player" controls></audio>
+      `;
+
+      const button = div.querySelector(".testButton");
+      const player = div.querySelector(".player");
+
+      button.addEventListener("click", async () => {
+
+        const file = audioFile.files[0];
+
+        if (!file) {
+          alert("Please select your voice sample first.");
+          return;
+        }
+
+        try {
+
+          button.disabled = true;
+          button.textContent = "Generating...";
+
+          statusBox.textContent =
+            "Converting your sample to " + name + "...";
+
+          const audio =
+            await puter.ai.speech2speech(
+              file,
+              {
+                voice: voice.id,
+                model: "eleven_multilingual_sts_v2",
+                output_format: "mp3_44100_128"
+              }
+            );
+
+          player.src = audio.toString();
+
+          await player.play();
+
+          statusBox.textContent =
+            "Playing: " + name;
+
+        } catch (error) {
+
+          console.error(error);
+
+          statusBox.textContent =
+            "Voice test failed: " +
+            (error.message || error);
+
+        } finally {
+
+          button.disabled = false;
+          button.textContent = "Test This Voice";
+        }
+
+      });
+
+      voicesBox.appendChild(div);
+    });
+
+    statusBox.textContent =
+      "Found " + voices.length +
+      " available voices. Showing the first 30 candidates.";
+
+  } catch (error) {
+
+    console.error(error);
+
+    statusBox.textContent =
+      "Could not load voices: " +
+      (error.message || error);
+
+  } finally {
+
+    loadButton.disabled = false;
+  }
+
+});
+
+
+function escapeHtml(value) {
+
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+</script>
+
+</body>
+</html>
