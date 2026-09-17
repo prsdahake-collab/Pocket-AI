@@ -764,8 +764,6 @@
 
   let currentTtsAudio = null;
   let currentTtsButton = null;
-  let ttsPending = false;
-  let ttsGeneration = 0;
   let autoVoiceReply = true;
 
   function speechPlainText(text) {
@@ -791,11 +789,6 @@
   }
 
   function stopVoiceReply() {
-    // Invalidate every in-flight TTS request so a delayed response cannot start
-    // playing after the user has already stopped it.
-    ttsGeneration++;
-    ttsPending = false;
-
     if (currentTtsAudio) {
       try { currentTtsAudio.pause(); } catch (_) {}
       try { currentTtsAudio.currentTime = 0; } catch (_) {}
@@ -812,50 +805,32 @@
     const speech = speechPlainText(text).slice(0, 2950);
     if (!speech) return false;
 
-    // Tapping the SAME waveform again is a true toggle: stop and do not queue
-    // another voice request. This also handles rapid taps while TTS is loading.
-    if (currentTtsButton === button && (ttsPending || currentTtsAudio ||
-        ("speechSynthesis" in window && window.speechSynthesis.speaking))) {
+    if (currentTtsAudio || ("speechSynthesis" in window && window.speechSynthesis.speaking)) {
       stopVoiceReply();
-      return false;
+      if (button && currentTtsButton === null) return true;
     }
 
-    // If another answer is speaking/loading, stop it before starting this one.
-    if (ttsPending || currentTtsAudio ||
-        ("speechSynthesis" in window && window.speechSynthesis.speaking)) {
-      stopVoiceReply();
-    }
-
-    const requestId = ++ttsGeneration;
-    ttsPending = true;
     currentTtsButton = button;
     setSpeakButtonState(button, true);
 
     try {
       const audio = await puter.ai.txt2speech(speech, {
-        provider: "xai",
-        voice: "ara",
+        provider: "elevenlabs",
+        voice: "iwP1PxYYSTdHA1qXlwFe",
         output_format: "mp3"
       });
 
-      // The request was cancelled or superseded while it was loading.
-      if (requestId !== ttsGeneration) {
-        try { audio.pause(); } catch (_) {}
-        return false;
-      }
-
-      ttsPending = false;
       currentTtsAudio = audio;
       audio.onended = () => {
         if (currentTtsAudio === audio) currentTtsAudio = null;
-        if (currentTtsButton === button && requestId === ttsGeneration) {
+        if (currentTtsButton === button) {
           setSpeakButtonState(button, false);
           currentTtsButton = null;
         }
       };
       audio.onerror = () => {
         if (currentTtsAudio === audio) currentTtsAudio = null;
-        if (currentTtsButton === button && requestId === ttsGeneration) {
+        if (currentTtsButton === button) {
           setSpeakButtonState(button, false);
           currentTtsButton = null;
         }
@@ -864,42 +839,11 @@
       await audio.play();
       return true;
     } catch (error) {
-      if (requestId !== ttsGeneration) return false;
-      ttsPending = false;
       console.warn("Limitra AI Puter voice reply failed:", error);
       if (currentTtsAudio) currentTtsAudio = null;
 
-      // Browser TTS fallback keeps voice replies working without an API key.
-      if ("speechSynthesis" in window) {
-        try {
-          window.speechSynthesis.cancel();
-          const utterance = new SpeechSynthesisUtterance(speech);
-          const lang = currentVoiceLanguage ? currentVoiceLanguage().code : "en-IN";
-          utterance.lang = lang;
-          // Energetic anime-warrior-inspired delivery; exact character imitation is not used.
-          utterance.rate = 1.06;
-          utterance.pitch = 0.62;
-          utterance.onend = () => {
-            if (currentTtsButton === button && requestId === ttsGeneration) {
-              setSpeakButtonState(button, false);
-              currentTtsButton = null;
-            }
-          };
-          utterance.onerror = () => {
-            if (currentTtsButton === button && requestId === ttsGeneration) {
-              setSpeakButtonState(button, false);
-              currentTtsButton = null;
-            }
-          };
-          window.speechSynthesis.speak(utterance);
-          return true;
-        } catch (_) {}
-      }
-
-      if (requestId === ttsGeneration) {
-        setSpeakButtonState(button, false);
-        currentTtsButton = null;
-      }
+      setSpeakButtonState(button, false);
+      currentTtsButton = null;
       return false;
     }
   }
@@ -1340,9 +1284,9 @@
 
   sendButton.addEventListener("click", sendMessage);
 
-  // Limitra AI v24 — live voice input + AI voice replies with persistent waveform icon.
+  // Limitra AI — live voice input + Sandra voice replies with persistent waveform icon.
   // 1) Live SpeechRecognition puts words into the composer immediately.
-  // Voice replies use Puter text-to-speech with a browser speechSynthesis fallback.
+  // Voice replies use Puter ElevenLabs text-to-speech with Sandra Squirrel.
   const voiceLangButton = document.getElementById("voiceLang");
   const voiceLanguages = [
     { code: "en-IN", label: "EN", name: "English (India)" },
