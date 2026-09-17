@@ -1021,7 +1021,7 @@
     saveMemory(memory);
   }
 
-  function buildConversationMessages(userText) {
+  function buildConversationPrompt(userText) {
     const memory = getMemory();
 
     let systemPrompt =
@@ -1038,28 +1038,23 @@
         ".";
     }
 
-    const messages = [
-      {
-        role: "system",
-        content: systemPrompt
-      }
-    ];
+    const recent = currentChat
+      .slice(-12)
+      .filter(item => item && item.type === "text")
+      .map(item => {
+        const role = item.role === "user" ? "User" : "Limitra AI";
+        return role + ": " + item.text;
+      })
+      .join("\n");
 
-    for (const item of currentChat.slice(-12)) {
-      if (item.type === "text") {
-        messages.push({
-          role: item.role === "user" ? "user" : "assistant",
-          content: item.text
-        });
-      }
-    }
-
-    messages.push({
-      role: "user",
-      content: userText
-    });
-
-    return messages;
+    return [
+      systemPrompt,
+      "",
+      recent ? "Recent conversation:\n" + recent : "",
+      "",
+      "User: " + userText,
+      "Limitra AI:"
+    ].filter(Boolean).join("\n");
   }
 
   async function sendChatMessage(prompt) {
@@ -1067,9 +1062,21 @@
     addTyping();
 
     try {
-      const messages = buildConversationMessages(prompt);
+      const chatPrompt = buildConversationPrompt(prompt);
 
-      const response = await puter.ai.chat(messages, { model: "gpt-5.6-luna", normalize: true });
+      // Use Puter's documented single-prompt chat form. This avoids
+      // the hanging multi-message request while keeping the same model.
+      const request = puter.ai.chat(chatPrompt, {
+        model: "gpt-5.6-luna",
+        normalize: true
+      });
+
+      const response = await Promise.race([
+        request,
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("AI response timed out")), 45000)
+        )
+      ]);
 
       removeTyping();
 
@@ -1101,8 +1108,6 @@
 
       if (autoVoiceReply) {
         const speakButton = answerBubble.querySelector(".speak-button");
-        // Try automatic voice. If Chrome blocks autoplay, the visible 🔊 button
-        // remains available for a user tap.
         speakText(answer, speakButton).catch(() => {});
       }
 
@@ -1112,10 +1117,10 @@
 
       addMessage(
         "bot",
-        "Sorry, something went wrong while getting the AI response. Please try again."
+        "Sorry, I couldn't get a response right now. Please try again."
       );
 
-      console.error(error);
+      console.error("Limitra AI chat error:", error);
     }
   }
 
