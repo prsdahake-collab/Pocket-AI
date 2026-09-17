@@ -295,6 +295,37 @@
       margin-top: 8px;
     }
 
+    .message-actions {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      margin-top: 8px;
+    }
+
+    .speak-button {
+      width: 38px;
+      height: 34px;
+      border: 1px solid #343743;
+      border-radius: 10px;
+      background: #15171d;
+      color: #e8e9ee;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .speak-button:active {
+      transform: scale(.96);
+    }
+
+    .speak-button.speaking {
+      border-color: #58b9ff;
+      box-shadow: 0 0 14px rgba(88,185,255,.35);
+    }
+
     .typing {
       color: #aeb1bd;
       font-style: italic;
@@ -719,6 +750,116 @@
     return html;
   }
 
+  let currentTtsAudio = null;
+  let currentTtsButton = null;
+  let autoVoiceReply = true;
+
+  function speechPlainText(text) {
+    return String(text || "")
+      .replace(/```[\s\S]*?```/g, " ")
+      .replace(/`([^`]+)`/g, "$1")
+      .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
+      .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+      .replace(/[*_~>#-]+/g, " ")
+      .replace(/\n+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function setSpeakButtonState(button, speaking) {
+    if (!button) return;
+    button.classList.toggle("speaking", !!speaking);
+    button.textContent = speaking ? "⏹" : "🔊";
+    button.title = speaking ? "Stop voice reply" : "Read this answer aloud";
+    button.setAttribute("aria-label", button.title);
+  }
+
+  function stopVoiceReply() {
+    if (currentTtsAudio) {
+      try { currentTtsAudio.pause(); } catch (_) {}
+      try { currentTtsAudio.currentTime = 0; } catch (_) {}
+      currentTtsAudio = null;
+    }
+    if ("speechSynthesis" in window) {
+      try { window.speechSynthesis.cancel(); } catch (_) {}
+    }
+    if (currentTtsButton) setSpeakButtonState(currentTtsButton, false);
+    currentTtsButton = null;
+  }
+
+  async function speakText(text, button = null) {
+    const speech = speechPlainText(text).slice(0, 2950);
+    if (!speech) return false;
+
+    if (currentTtsAudio || ("speechSynthesis" in window && window.speechSynthesis.speaking)) {
+      stopVoiceReply();
+      if (button && currentTtsButton === null) return true;
+    }
+
+    currentTtsButton = button;
+    setSpeakButtonState(button, true);
+
+    try {
+      const audio = await puter.ai.txt2speech(speech, {
+        provider: "xai",
+        voice: "ara",
+        output_format: "mp3"
+      });
+
+      currentTtsAudio = audio;
+      audio.onended = () => {
+        if (currentTtsAudio === audio) currentTtsAudio = null;
+        if (currentTtsButton === button) {
+          setSpeakButtonState(button, false);
+          currentTtsButton = null;
+        }
+      };
+      audio.onerror = () => {
+        if (currentTtsAudio === audio) currentTtsAudio = null;
+        if (currentTtsButton === button) {
+          setSpeakButtonState(button, false);
+          currentTtsButton = null;
+        }
+      };
+
+      await audio.play();
+      return true;
+    } catch (error) {
+      console.warn("Limitra AI Puter voice reply failed:", error);
+      if (currentTtsAudio) currentTtsAudio = null;
+
+      // Browser TTS fallback keeps voice replies working without an API key.
+      if ("speechSynthesis" in window) {
+        try {
+          window.speechSynthesis.cancel();
+          const utterance = new SpeechSynthesisUtterance(speech);
+          const lang = currentVoiceLanguage ? currentVoiceLanguage().code : "en-IN";
+          utterance.lang = lang;
+          utterance.rate = 1.0;
+          utterance.pitch = 1.0;
+          utterance.onend = () => {
+            if (currentTtsButton === button) {
+              setSpeakButtonState(button, false);
+              currentTtsButton = null;
+            }
+          };
+          utterance.onerror = () => {
+            if (currentTtsButton === button) {
+              setSpeakButtonState(button, false);
+              currentTtsButton = null;
+            }
+          };
+          window.speechSynthesis.speak(utterance);
+          return true;
+        } catch (_) {}
+      }
+
+      setSpeakButtonState(button, false);
+      currentTtsButton = null;
+      return false;
+    }
+  }
+
   function addMessage(role, text, save = true) {
     if (welcome) {
       welcome.style.display = "none";
@@ -732,6 +873,26 @@
 
     if (role === "bot") {
       bubble.innerHTML = formatMarkdown(text);
+
+      const actions = document.createElement("div");
+      actions.className = "message-actions";
+
+      const speakButton = document.createElement("button");
+      speakButton.type = "button";
+      speakButton.className = "speak-button";
+      speakButton.textContent = "🔊";
+      speakButton.title = "Read this answer aloud";
+      speakButton.setAttribute("aria-label", "Read this answer aloud");
+      speakButton.addEventListener("click", async () => {
+        if (currentTtsButton === speakButton && currentTtsAudio) {
+          stopVoiceReply();
+          return;
+        }
+        await speakText(text, speakButton);
+      });
+
+      actions.appendChild(speakButton);
+      bubble.appendChild(actions);
     } else {
       bubble.textContent = text;
     }
@@ -919,9 +1080,16 @@
         answer = "I couldn't generate a response. Please try again.";
       }
 
-      addMessage("bot", answer);
+      const answerBubble = addMessage("bot", answer);
 
       updateMemoryFromConversation(prompt, answer);
+
+      if (autoVoiceReply) {
+        const speakButton = answerBubble.querySelector(".speak-button");
+        // Try automatic voice. If Chrome blocks autoplay, the visible 🔊 button
+        // remains available for a user tap.
+        speakText(answer, speakButton).catch(() => {});
+      }
 
       updateHistory();
     } catch (error) {
@@ -957,6 +1125,7 @@
   }
 
   function startNewChat() {
+    stopVoiceReply();
     currentChat = [];
 
     localStorage.removeItem(CURRENT_CHAT_KEY);
@@ -1127,12 +1296,9 @@
 
   sendButton.addEventListener("click", sendMessage);
 
-  // Limitra AI v19 — HYBRID high-clarity voice input.
+  // Limitra AI v21 — live voice input + AI voice replies.
   // 1) Live SpeechRecognition puts words into the composer immediately.
-  // 2) MediaRecorder captures the same speech in parallel.
-  // 3) When the user stops, Puter speech2txt can refine the transcript.
-  // If live recognition is unavailable, the recorded audio still gets a final
-  // transcription. Puter accepts File/Blob/WebM directly.
+  // Voice replies use Puter text-to-speech with a browser speechSynthesis fallback.
   const voiceLangButton = document.getElementById("voiceLang");
   const voiceLanguages = [
     { code: "en-IN", label: "EN", name: "English (India)" },
@@ -1422,6 +1588,7 @@
   micButton.addEventListener("click", startVoice);
 
   window.addEventListener("pagehide", () => {
+    stopVoiceReply();
     stoppingVoice = true;
     stopLiveRecognition();
     if (mediaRecorder) { try { mediaRecorder.stop(); } catch (_) {} }
