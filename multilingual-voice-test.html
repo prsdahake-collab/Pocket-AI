@@ -1,0 +1,1004 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Limitra AI - Multilingual Voice Test</title>
+
+<script src="https://js.puter.com/v2/"></script>
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    padding: 18px;
+    background: #0b0d12;
+    color: #ffffff;
+    font-family: Arial, sans-serif;
+}
+
+h1 {
+    text-align: center;
+    margin: 5px 0 8px;
+    font-size: 29px;
+}
+
+.subtitle {
+    text-align: center;
+    color: #9da6b8;
+    margin-bottom: 20px;
+}
+
+.card {
+    background: #151922;
+    border: 1px solid #2a3040;
+    border-radius: 16px;
+    padding: 16px;
+    margin-bottom: 14px;
+}
+
+label {
+    display: block;
+    color: #aab3c4;
+    font-size: 13px;
+    margin-bottom: 7px;
+}
+
+input,
+select,
+textarea {
+    width: 100%;
+    background: #0f1219;
+    color: white;
+    border: 1px solid #303746;
+    border-radius: 11px;
+    padding: 12px;
+    font-size: 15px;
+    outline: none;
+}
+
+textarea {
+    min-height: 90px;
+    resize: vertical;
+}
+
+button {
+    width: 100%;
+    margin-top: 10px;
+    padding: 13px;
+    border: 0;
+    border-radius: 11px;
+    background: #1976d2;
+    color: white;
+    font-size: 15px;
+    font-weight: bold;
+}
+
+button:active {
+    transform: scale(0.98);
+}
+
+.stop {
+    background: #9b2735;
+}
+
+.secondary {
+    background: #293142;
+}
+
+.status {
+    margin-top: 12px;
+    color: #aab3c4;
+    font-size: 13px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+}
+
+.success {
+    color: #39d98a;
+}
+
+.error {
+    color: #ff6572;
+}
+
+.voice-info {
+    margin-top: 12px;
+    color: #aab3c4;
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.voice-id {
+    color: #71b7ff;
+    word-break: break-all;
+}
+
+.badge {
+    display: inline-block;
+    background: #20283a;
+    color: #b8d9ff;
+    padding: 4px 8px;
+    border-radius: 20px;
+    margin: 3px 3px 0 0;
+    font-size: 11px;
+}
+
+.test-title {
+    font-size: 17px;
+    font-weight: bold;
+    margin-bottom: 8px;
+}
+
+.small {
+    color: #8993a6;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.footer {
+    text-align: center;
+    color: #687184;
+    font-size: 12px;
+    margin: 25px 0 10px;
+}
+</style>
+</head>
+
+<body>
+
+<h1>Limitra AI</h1>
+
+<div class="subtitle">
+    Multilingual Voice Tester
+</div>
+
+
+<!-- VOICE LOADER -->
+
+<div class="card">
+
+    <label>Search ElevenLabs voices</label>
+
+    <input
+        id="search"
+        type="text"
+        placeholder="Search voice name..."
+    >
+
+    <button onclick="loadVoices()">
+        Load / Refresh Voices
+    </button>
+
+    <button
+        class="stop"
+        onclick="stopAudio()"
+    >
+        Stop Audio
+    </button>
+
+    <div
+        id="loadStatus"
+        class="status"
+    >
+        Loading voices...
+    </div>
+
+</div>
+
+
+<!-- VOICE SELECT -->
+
+<div class="card">
+
+    <label>Select one voice</label>
+
+    <select id="voiceSelect">
+        <option>Loading...</option>
+    </select>
+
+    <div
+        id="voiceInfo"
+        class="voice-info"
+    ></div>
+
+</div>
+
+
+<!-- MODEL -->
+
+<div class="card">
+
+    <label>ElevenLabs model</label>
+
+    <select id="modelSelect">
+
+        <option value="eleven_multilingual_v2">
+            eleven_multilingual_v2
+        </option>
+
+        <option value="eleven_v3">
+            eleven_v3
+        </option>
+
+        <option value="eleven_flash_v2_5">
+            eleven_flash_v2_5
+        </option>
+
+        <option value="eleven_turbo_v2_5">
+            eleven_turbo_v2_5
+        </option>
+
+    </select>
+
+    <div class="small" style="margin-top:8px;">
+        The same voice will be used for English, Hindi and Marathi.
+    </div>
+
+</div>
+
+
+<!-- ENGLISH -->
+
+<div class="card">
+
+    <div class="test-title">
+        🇬🇧 English
+    </div>
+
+    <textarea id="en">Hello! I am Limitra AI. I can speak with you in English.</textarea>
+
+    <button onclick="speak('en')">
+        ▶ Test English
+    </button>
+
+</div>
+
+
+<!-- HINDI -->
+
+<div class="card">
+
+    <div class="test-title">
+        🇮🇳 Hindi
+    </div>
+
+    <textarea id="hi">नमस्ते! मैं Limitra AI हूँ। मैं आपसे हिंदी में बात कर सकता हूँ।</textarea>
+
+    <button onclick="speak('hi')">
+        ▶ Test Hindi
+    </button>
+
+</div>
+
+
+<!-- MARATHI -->
+
+<div class="card">
+
+    <div class="test-title">
+        🇮🇳 Marathi
+    </div>
+
+    <textarea id="mr">नमस्कार! मी Limitra AI आहे. मी तुमच्याशी मराठीत बोलू शकतो.</textarea>
+
+    <button onclick="speak('mr')">
+        ▶ Test Marathi
+    </button>
+
+</div>
+
+
+<!-- TEST ALL -->
+
+<div class="card">
+
+    <div class="test-title">
+        🔊 Test Same Voice in All Three
+    </div>
+
+    <div class="small">
+        English → Hindi → Marathi
+    </div>
+
+    <button onclick="testAll()">
+        ▶ Test All Three
+    </button>
+
+    <div
+        id="status"
+        class="status"
+    ></div>
+
+</div>
+
+
+<div class="footer">
+    Limitra AI • Voice testing page
+</div>
+
+
+<script>
+
+let voices = [];
+
+let currentAudio = null;
+
+let busy = false;
+
+
+/* STATUS */
+
+function setStatus(text, type = "") {
+
+    const element = document.getElementById("status");
+
+    element.className = "status " + type;
+
+    element.textContent = text;
+
+}
+
+
+/* ESCAPE HTML */
+
+function escapeHtml(text) {
+
+    return String(text || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+
+}
+
+
+/* CHECK MODEL */
+
+function voiceSupportsModel(voice, model) {
+
+    if (
+        !Array.isArray(voice.supported_models)
+        ||
+        voice.supported_models.length === 0
+    ) {
+        return true;
+    }
+
+    return voice.supported_models.includes(model);
+
+}
+
+
+/* LOAD VOICES */
+
+async function loadVoices() {
+
+    const status =
+        document.getElementById("loadStatus");
+
+    status.textContent =
+        "Loading ElevenLabs voices from Puter...";
+
+    try {
+
+        const result =
+            await puter.ai.txt2speech.listVoices({
+                provider: "elevenlabs"
+            });
+
+        voices =
+            Array.isArray(result)
+                ? result
+                : [];
+
+        voices.sort((a, b) =>
+            String(a.name || a.id)
+                .localeCompare(
+                    String(b.name || b.id)
+                )
+        );
+
+        renderVoices();
+
+        status.innerHTML =
+            "Loaded <b>" +
+            voices.length +
+            "</b> ElevenLabs voices.";
+
+    }
+
+    catch (error) {
+
+        status.innerHTML =
+            '<span class="error">' +
+            "Could not load voices: " +
+            escapeHtml(error.message || error) +
+            "</span>";
+
+    }
+
+}
+
+
+/* RENDER VOICES */
+
+function renderVoices() {
+
+    const search =
+        document
+            .getElementById("search")
+            .value
+            .trim()
+            .toLowerCase();
+
+    const filtered =
+        voices.filter(voice => {
+
+            const text = [
+
+                voice.name,
+                voice.id,
+                voice.description,
+                voice.category
+
+            ]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase();
+
+            return !search ||
+                   text.includes(search);
+
+        });
+
+
+    const select =
+        document.getElementById("voiceSelect");
+
+    select.innerHTML = "";
+
+
+    filtered.forEach(voice => {
+
+        const option =
+            document.createElement("option");
+
+        option.value =
+            voice.id;
+
+        option.textContent =
+            (voice.name || voice.id) +
+            " — " +
+            voice.id;
+
+        select.appendChild(option);
+
+    });
+
+
+    if (filtered.length === 0) {
+
+        const option =
+            document.createElement("option");
+
+        option.value = "";
+
+        option.textContent =
+            "No matching voices";
+
+        select.appendChild(option);
+
+    }
+
+
+    updateVoiceInfo();
+
+}
+
+
+/* VOICE INFORMATION */
+
+function updateVoiceInfo() {
+
+    const id =
+        document
+            .getElementById("voiceSelect")
+            .value;
+
+    const voice =
+        voices.find(v => v.id === id);
+
+    const info =
+        document.getElementById("voiceInfo");
+
+
+    if (!voice) {
+
+        info.innerHTML = "";
+
+        return;
+
+    }
+
+
+    let models = "Not specified";
+
+
+    if (
+        Array.isArray(voice.supported_models)
+        &&
+        voice.supported_models.length
+    ) {
+
+        models =
+            voice.supported_models
+                .map(
+                    model =>
+                        `<span class="badge">${escapeHtml(model)}</span>`
+                )
+                .join("");
+
+    }
+
+
+    info.innerHTML =
+
+        "<b>" +
+        escapeHtml(
+            voice.name || voice.id
+        ) +
+        "</b><br>" +
+
+        "Voice ID: " +
+
+        "<span class='voice-id'>" +
+
+        escapeHtml(voice.id) +
+
+        "</span><br>" +
+
+        (
+            voice.language
+
+            ?
+
+            "Language metadata: " +
+
+            escapeHtml(
+                voice.language.name ||
+                voice.language.code ||
+                ""
+            )
+
+            :
+
+            "Language metadata: not specified"
+        ) +
+
+        "<br>" +
+
+        (
+            voice.description
+
+            ?
+
+            escapeHtml(
+                voice.description
+            ) + "<br>"
+
+            :
+
+            ""
+        ) +
+
+        "<br>" +
+
+        "Supported models:<br>" +
+
+        models;
+
+
+    const model =
+        document
+            .getElementById("modelSelect")
+            .value;
+
+
+    if (
+        !voiceSupportsModel(
+            voice,
+            model
+        )
+    ) {
+
+        const possibleModels = [
+
+            "eleven_multilingual_v2",
+
+            "eleven_v3",
+
+            "eleven_flash_v2_5",
+
+            "eleven_turbo_v2_5"
+
+        ];
+
+
+        const fallback =
+            possibleModels.find(
+                m =>
+                    voiceSupportsModel(
+                        voice,
+                        m
+                    )
+            );
+
+
+        if (fallback) {
+
+            document
+                .getElementById("modelSelect")
+                .value = fallback;
+
+        }
+
+    }
+
+}
+
+
+/* STOP AUDIO */
+
+function stopAudio() {
+
+    if (currentAudio) {
+
+        try {
+
+            currentAudio.pause();
+
+            currentAudio.currentTime = 0;
+
+        }
+
+        catch (e) {}
+
+        currentAudio = null;
+
+    }
+
+    busy = false;
+
+    setStatus("Audio stopped.");
+
+}
+
+
+/* SPEAK ONE LANGUAGE */
+
+async function speak(language) {
+
+    if (busy) {
+
+        setStatus(
+            "A voice test is already playing. Tap Stop first."
+        );
+
+        return;
+
+    }
+
+
+    const voice =
+        document
+            .getElementById("voiceSelect")
+            .value;
+
+
+    const model =
+        document
+            .getElementById("modelSelect")
+            .value;
+
+
+    const text =
+        document
+            .getElementById(language)
+            .value
+            .trim();
+
+
+    if (!voice) {
+
+        setStatus(
+            "Please select a voice first.",
+            "error"
+        );
+
+        return;
+
+    }
+
+
+    if (!text) {
+
+        setStatus(
+            "Please enter some text.",
+            "error"
+        );
+
+        return;
+
+    }
+
+
+    busy = true;
+
+
+    setStatus(
+        "Generating " +
+        language.toUpperCase() +
+        " voice..."
+    );
+
+
+    try {
+
+        currentAudio =
+            await puter.ai.txt2speech(
+                text,
+                {
+                    provider: "elevenlabs",
+
+                    model: model,
+
+                    voice: voice,
+
+                    output_format:
+                        "mp3_44100_128"
+                }
+            );
+
+
+        currentAudio.onended =
+            function () {
+
+                busy = false;
+
+                currentAudio = null;
+
+                setStatus(
+                    language.toUpperCase() +
+                    " test finished.",
+                    "success"
+                );
+
+            };
+
+
+        await currentAudio.play();
+
+    }
+
+    catch (error) {
+
+        busy = false;
+
+        currentAudio = null;
+
+        setStatus(
+            "Error: " +
+            (error.message || error),
+            "error"
+        );
+
+    }
+
+}
+
+
+/* TEST ALL THREE */
+
+async function testAll() {
+
+    if (busy) {
+
+        setStatus(
+            "A test is already running. Tap Stop first."
+        );
+
+        return;
+
+    }
+
+
+    const voice =
+        document
+            .getElementById("voiceSelect")
+            .value;
+
+
+    const model =
+        document
+            .getElementById("modelSelect")
+            .value;
+
+
+    if (!voice) {
+
+        setStatus(
+            "Please select a voice first.",
+            "error"
+        );
+
+        return;
+
+    }
+
+
+    busy = true;
+
+
+    const tests = [
+
+        ["English", "en"],
+
+        ["Hindi", "hi"],
+
+        ["Marathi", "mr"]
+
+    ];
+
+
+    try {
+
+        for (
+            const [name, id]
+            of tests
+        ) {
+
+            if (!busy) {
+
+                return;
+
+            }
+
+
+            const text =
+                document
+                    .getElementById(id)
+                    .value
+                    .trim();
+
+
+            if (!text) {
+
+                continue;
+
+            }
+
+
+            setStatus(
+                "Generating " +
+                name +
+                "...\n\n" +
+
+                "Same voice: " +
+                voice +
+                "\n" +
+
+                "Model: " +
+                model
+            );
+
+
+            currentAudio =
+                await puter.ai.txt2speech(
+                    text,
+                    {
+                        provider: "elevenlabs",
+
+                        model: model,
+
+                        voice: voice,
+
+                        output_format:
+                            "mp3_44100_128"
+                    }
+                );
+
+
+            await new Promise(
+                (resolve, reject) => {
+
+                    currentAudio.onended =
+                        resolve;
+
+                    currentAudio.onerror =
+                        reject;
+
+                    currentAudio
+                        .play()
+                        .catch(reject);
+
+                }
+            );
+
+        }
+
+
+        busy = false;
+
+        currentAudio = null;
+
+
+        setStatus(
+            "All three tests finished.\n\n" +
+            "Compare the English, Hindi and Marathi pronunciation, naturalness and consistency.",
+            "success"
+        );
+
+    }
+
+    catch (error) {
+
+        busy = false;
+
+        currentAudio = null;
+
+
+        setStatus(
+            "Test stopped or failed:\n" +
+            (error.message || error),
+            "error"
+        );
+
+    }
+
+}
+
+
+/* SEARCH */
+
+document
+    .getElementById("search")
+    .addEventListener(
+        "input",
+        renderVoices
+    );
+
+
+/* VOICE CHANGE */
+
+document
+    .getElementById("voiceSelect")
+    .addEventListener(
+        "change",
+        updateVoiceInfo
+    );
+
+
+/* MODEL CHANGE */
+
+document
+    .getElementById("modelSelect")
+    .addEventListener(
+        "change",
+        updateVoiceInfo
+    );
+
+
+/* START */
+
+loadVoices();
+
+</script>
+
+</body>
+</html>
