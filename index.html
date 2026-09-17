@@ -577,13 +577,7 @@
     <div id="historyList"></div>
     <button class="clear-btn" id="clearHistory">Clear History</button>
   </div>
-
-  <div id="voiceNotice" style="position:fixed;left:16px;right:16px;bottom:88px;z-index:50;background:#191a20;border:1px solid rgba(120,160,255,.28);border-radius:14px;padding:12px 42px 12px 14px;color:#dfe7ff;font-size:12px;line-height:1.45;box-shadow:0 8px 28px rgba(0,0,0,.35);">
-    <strong style="color:#ffffff;">Voice output notice:</strong> Voice quality, accent, and pronunciation can vary by language. If this voice doesn't suit you, you can switch to another available voice.
-    <button id="closeVoiceNotice" type="button" aria-label="Close voice output notice" style="position:absolute;right:8px;top:7px;border:0;background:transparent;color:#aeb9d6;font-size:20px;line-height:1;cursor:pointer;padding:4px 8px;">&times;</button>
-  </div>
-
-  <div class="composer-area">
+<div class="composer-area">
 
     <div class="composer">
       <textarea
@@ -799,9 +793,6 @@
       try { currentTtsAudio.currentTime = 0; } catch (_) {}
       currentTtsAudio = null;
     }
-    if ("speechSynthesis" in window) {
-      try { window.speechSynthesis.cancel(); } catch (_) {}
-    }
     if (currentTtsButton) setSpeakButtonState(currentTtsButton, false);
     currentTtsButton = null;
   }
@@ -810,7 +801,7 @@
     const speech = speechPlainText(text).slice(0, 2950);
     if (!speech) return false;
 
-    if (currentTtsAudio || ("speechSynthesis" in window && window.speechSynthesis.speaking)) {
+    if (currentTtsAudio) {
       stopVoiceReply();
       if (button && currentTtsButton === null) return true;
     }
@@ -847,33 +838,6 @@
     } catch (error) {
       console.warn("Limitra AI Puter voice reply failed:", error);
       if (currentTtsAudio) currentTtsAudio = null;
-
-      // Browser TTS fallback keeps voice replies working without an API key.
-      if ("speechSynthesis" in window) {
-        try {
-          window.speechSynthesis.cancel();
-          const utterance = new SpeechSynthesisUtterance(speech);
-          const lang = currentVoiceLanguage ? currentVoiceLanguage().code : "en-IN";
-          utterance.lang = lang;
-          // Energetic anime-warrior-inspired delivery; exact character imitation is not used.
-          utterance.rate = 1.06;
-          utterance.pitch = 0.62;
-          utterance.onend = () => {
-            if (currentTtsButton === button) {
-              setSpeakButtonState(button, false);
-              currentTtsButton = null;
-            }
-          };
-          utterance.onerror = () => {
-            if (currentTtsButton === button) {
-              setSpeakButtonState(button, false);
-              currentTtsButton = null;
-            }
-          };
-          window.speechSynthesis.speak(utterance);
-          return true;
-        } catch (_) {}
-      }
 
       setSpeakButtonState(button, false);
       currentTtsButton = null;
@@ -1319,7 +1283,7 @@
 
   // Limitra AI v24 — live voice input + AI voice replies with persistent waveform icon.
   // 1) Live SpeechRecognition puts words into the composer immediately.
-  // Voice replies use Puter text-to-speech with a browser speechSynthesis fallback.
+  // Voice replies use Puter text-to-speech only.
   const voiceLangButton = document.getElementById("voiceLang");
   const voiceLanguages = [
     { code: "en-IN", label: "EN", name: "English (India)" },
@@ -1667,16 +1631,5 @@
   renderHistory();
   input.focus();
 </script>
-
-  <script>
-    (function () {
-      const notice = document.getElementById("voiceNotice");
-      const close = document.getElementById("closeVoiceNotice");
-      if (close && notice) {
-        close.addEventListener("click", () => { notice.style.display = "none"; });
-      }
-    })();
-  </script>
-
 </body>
 </html>
