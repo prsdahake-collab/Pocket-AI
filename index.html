@@ -1231,184 +1231,110 @@
     clearTimeout(recognitionRestartTimer);
     recognitionRestartTimer = null;
     if (recognition) {
-      try { recognition.stop(); } catch (_) {}
+      try { recognition.abort(); } catch (_) {}
     }
   }
 
-  function chooseRecorderMime() {
-    if (!window.MediaRecorder || typeof MediaRecorder.isTypeSupported !== "function") return "";
-    const choices = [
-      "audio/webm;codecs=opus",
-      "audio/webm",
-      "audio/ogg;codecs=opus",
-      "audio/mp4"
-    ];
-    return choices.find(x => MediaRecorder.isTypeSupported(x)) || "";
-  }
-
-  function startAudioCapture() {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) {
-      return Promise.resolve(false);
-    }
-
-    return navigator.mediaDevices.getUserMedia({
-      audio: {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true,
-        channelCount: 1
-      }
-    }).then(stream => {
-      voiceStream = stream;
-      voiceChunks = [];
-      const mimeType = chooseRecorderMime();
-      mediaRecorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
-      mediaRecorder.ondataavailable = e => {
-        if (e.data && e.data.size > 0) voiceChunks.push(e.data);
-      };
-      mediaRecorder.start(250);
-      return true;
-    }).catch(err => {
-      console.warn("Limitra AI audio capture unavailable:", err);
-      voiceStream = null;
-      mediaRecorder = null;
-      return false;
-    });
-  }
-
-  function stopAudioCapture() {
-    return new Promise(resolve => {
-      const recorder = mediaRecorder;
-      if (!recorder) {
-        if (voiceStream) voiceStream.getTracks().forEach(t => t.stop());
-        voiceStream = null;
-        resolve(null);
-        return;
-      }
-
-      recorder.onstop = () => {
-        const type = recorder.mimeType || "audio/webm";
-        const ext = type.includes("ogg") ? "ogg" : type.includes("mp4") ? "mp4" : "webm";
-        const blob = new Blob(voiceChunks, { type });
-        const file = new File([blob], "limitra-voice." + ext, { type, lastModified: Date.now() });
-        if (voiceStream) voiceStream.getTracks().forEach(t => t.stop());
-        voiceStream = null;
-        mediaRecorder = null;
-        voiceChunks = [];
-        resolve(file);
-      };
-
-      try { recorder.stop(); } catch (_) {
-        const type = recorder.mimeType || "audio/webm";
-        const blob = new Blob(voiceChunks, { type });
-        const file = new File([blob], "limitra-voice.webm", { type, lastModified: Date.now() });
-        if (voiceStream) voiceStream.getTracks().forEach(t => t.stop());
-        voiceStream = null;
-        mediaRecorder = null;
-        voiceChunks = [];
-        resolve(file);
-      }
-    });
-  }
-
+  // Chrome Android can end/interrupt a continuous recognition session.
+  // Instead of relying on continuous=true, Limitra AI uses short recognition
+  // sessions and automatically starts another one after each result/end event.
   function makeRecognition() {
     if (!SpeechRecognition) return null;
+
     const r = new SpeechRecognition();
-    r.continuous = true;
+    r.continuous = false;
     r.interimResults = true;
-    r.maxAlternatives = 3;
+    r.maxAlternatives = 1;
     r.lang = currentVoiceLanguage().code;
 
-    try {
-      if ("phrases" in r && typeof SpeechRecognitionPhrase !== "undefined") {
-        r.phrases = [
-          new SpeechRecognitionPhrase("Limitra AI", 8.0),
-          new SpeechRecognitionPhrase("Paras Dahake", 5.0),
-          new SpeechRecognitionPhrase("Limitra", 6.0),
-          new SpeechRecognitionPhrase("mic check", 4.0),
-          new SpeechRecognitionPhrase("can you hear me", 4.0)
-        ];
-      }
-    } catch (_) {}
+    r.onstart = () => {
+      if (isRecording && !stoppingVoice) setVoiceStatus("Listening — speak now");
+    };
 
-    r.onstart = () => { if (isRecording) setVoiceStatus("Listening — speak now"); };
-    r.onaudiostart = () => { if (isRecording) setVoiceStatus("Listening — speak now"); };
+    r.onaudiostart = () => {
+      if (isRecording && !stoppingVoice) setVoiceStatus("Listening — speak now");
+    };
+
+    r.onspeechstart = () => {
+      if (isRecording && !stoppingVoice) setVoiceStatus("Hearing you…");
+    };
 
     r.onresult = event => {
-      if (!isRecording) return;
+      if (!isRecording || stoppingVoice) return;
+
       let interim = "";
+      let finalChunk = "";
+
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const result = event.results[i];
         if (!result || !result[0]) continue;
         const piece = cleanVoiceText(result[0].transcript);
         if (!piece) continue;
+
         if (result.isFinal) {
-          liveFinalText = cleanVoiceText([liveFinalText, piece].filter(Boolean).join(" "));
+          finalChunk = cleanVoiceText([finalChunk, piece].filter(Boolean).join(" "));
         } else {
-          interim = piece;
+          interim = cleanVoiceText([interim, piece].filter(Boolean).join(" "));
         }
       }
-      liveInterimText = interim;
+
+      if (finalChunk) {
+        liveFinalText = cleanVoiceText([liveFinalText, finalChunk].filter(Boolean).join(" "));
+        liveInterimText = "";
+      } else {
+        liveInterimText = interim;
+      }
+
+      // This is the important part: text is written into the Limitra AI
+      // composer immediately, including interim results while the user speaks.
       renderLiveVoice();
     };
 
     r.onerror = event => {
       voiceHadError = true;
-      console.warn("Limitra AI live voice error:", event.error);
-      if (event.error === "not-allowed" || event.error === "service-not-allowed") {
-        stopLiveRecognition();
-        setVoiceStatus("Live recognition blocked");
+      const error = event && event.error ? event.error : "unknown";
+      console.warn("Limitra AI live voice error:", error);
+
+      if (!isRecording || stoppingVoice) return;
+
+      if (error === "not-allowed" || error === "service-not-allowed") {
+        setVoiceStatus("Microphone permission blocked");
         return;
       }
-      if (isRecording && !stoppingVoice) {
-        clearTimeout(recognitionRestartTimer);
-        recognitionRestartTimer = setTimeout(() => {
-          if (!isRecording || stoppingVoice || !recognition) return;
-          try { recognition.lang = currentVoiceLanguage().code; recognition.start(); } catch (_) {}
-        }, 450);
+
+      if (error === "audio-capture") {
+        setVoiceStatus("Microphone unavailable");
+      } else if (error === "network") {
+        setVoiceStatus("Speech service unavailable");
+      } else if (error === "no-speech") {
+        setVoiceStatus("Listening — speak now");
+      } else {
+        setVoiceStatus("Listening — speak now");
       }
     };
 
     r.onend = () => {
-      if (isRecording && !stoppingVoice) {
-        clearTimeout(recognitionRestartTimer);
-        recognitionRestartTimer = setTimeout(() => {
-          if (!isRecording || stoppingVoice || !recognition) return;
-          try { recognition.lang = currentVoiceLanguage().code; recognition.start(); } catch (_) {}
-        }, 300);
-      }
+      if (!isRecording || stoppingVoice) return;
+
+      // Give Chrome Android a short break before starting the next segment.
+      clearTimeout(recognitionRestartTimer);
+      recognitionRestartTimer = setTimeout(() => {
+        if (!isRecording || stoppingVoice || !recognition) return;
+        try {
+          recognition.lang = currentVoiceLanguage().code;
+          recognition.start();
+        } catch (err) {
+          console.warn("Limitra AI recognition restart failed:", err);
+          clearTimeout(recognitionRestartTimer);
+          recognitionRestartTimer = setTimeout(() => {
+            if (!isRecording || stoppingVoice || !recognition) return;
+            try { recognition.start(); } catch (_) {}
+          }, 500);
+        }
+      }, 180);
     };
+
     return r;
-  }
-
-  async function refineVoiceWithPuter(file, existingText) {
-    if (!file || file.size < 1000 || !window.puter || !puter.ai || !puter.ai.speech2txt) return existingText;
-
-    setMicState(false, true);
-    setVoiceStatus("Finalizing voice text…");
-
-    const lang = currentVoiceLanguage().code.split("-")[0];
-    const prompt = "Limitra AI, Paras Dahake, mic check, hello, can you hear me. " +
-      "Preserve the speaker's original language and wording. Do not translate unless necessary.";
-
-    const attempts = [
-      { provider: "openai", model: "gpt-4o-transcribe", language: lang, prompt, response_format: "json" },
-      { provider: "openai", model: "gpt-4o-mini-transcribe", language: lang, prompt, response_format: "json" },
-      { provider: "openai", model: "whisper-1", language: lang, prompt, response_format: "json" },
-      { provider: "openai", model: "whisper-1", response_format: "json" }
-    ];
-
-    for (const options of attempts) {
-      try {
-        const result = await puter.ai.speech2txt(file, options);
-        const text = typeof result === "string" ? result : (result && (result.text || result.transcript));
-        const clean = normalizeLimitraTranscript(text || "");
-        if (clean) return clean;
-      } catch (err) {
-        console.warn("Limitra AI final STT attempt failed:", options.model, err);
-      }
-    }
-    return existingText;
   }
 
   async function startVoice() {
@@ -1417,8 +1343,8 @@
       return;
     }
 
-    if (!SpeechRecognition && !(navigator.mediaDevices && window.MediaRecorder)) {
-      alert("Voice input is not available in this browser. Please allow microphone access or use Chrome on Android.");
+    if (!SpeechRecognition) {
+      alert("Live voice typing is not available in this browser. Please open Limitra AI in Google Chrome on Android and allow microphone access.");
       return;
     }
 
@@ -1433,22 +1359,26 @@
     setMicState(true);
     setVoiceStatus("Starting microphone…");
 
-    // Capture audio in parallel. This is also the fallback/final-quality path.
-    startAudioCapture();
+    // IMPORTANT: do not open MediaRecorder at the same time as SpeechRecognition.
+    // On some Android/Chrome devices two microphone consumers interfere with
+    // the live recognition stream. Live typing is the primary voice feature.
+    recognition = makeRecognition();
 
-    if (SpeechRecognition) {
-      recognition = makeRecognition();
-      try {
-        recognition.start();
-      } catch (error) {
-        console.warn("Live recognition start failed:", error);
-        recognition = null;
-      }
+    if (!recognition) {
+      setMicState(false);
+      setVoiceStatus("");
+      alert("Limitra AI could not start live voice typing.");
+      return;
     }
 
-    if (!recognition && !mediaRecorder) {
+    try {
+      recognition.start();
+    } catch (error) {
+      console.warn("Limitra AI recognition start failed:", error);
+      recognition = null;
       setMicState(false);
-      alert("Limitra AI could not start voice input. Please allow microphone access and try again.");
+      setVoiceStatus("");
+      alert("Limitra AI could not start the microphone. Please allow microphone access in Chrome and try again.");
     }
   }
 
@@ -1458,43 +1388,29 @@
     stoppingVoice = true;
     finalizingVoice = true;
     clearTimeout(recognitionRestartTimer);
-    stopLiveRecognition();
 
-    // Keep every word currently visible before final STT refinement.
+    // Preserve the last visible words, including an interim phrase.
     const liveText = normalizeLimitraTranscript(
       [voiceBaseText, liveFinalText, liveInterimText].filter(Boolean).join(" ")
     );
+
     if (liveText) {
       input.value = liveText;
       input.dispatchEvent(new Event("input", { bubbles: true }));
       updateInputSize();
     }
 
-    const file = await stopAudioCapture();
-    setMicState(false, true);
-    setVoiceStatus("Finalizing voice text…");
-
-    let finalText = liveText;
-    // Only wait for final STT if we captured a meaningful recording.
-    if (file && file.size >= 1000 && (Date.now() - voiceStartedAt) >= 300) {
-      try {
-        finalText = await refineVoiceWithPuter(file, liveText);
-      } catch (err) {
-        console.warn("Limitra AI final voice refinement failed:", err);
-      }
+    if (recognition) {
+      try { recognition.stop(); } catch (_) {}
     }
 
-    input.value = normalizeLimitraTranscript(finalText || liveText);
-    input.dispatchEvent(new Event("input", { bubbles: true }));
-    updateInputSize();
-    input.focus();
-
-    liveInterimText = "";
     recognition = null;
+    liveInterimText = "";
     finalizingVoice = false;
     stoppingVoice = false;
     setMicState(false);
     setVoiceStatus("");
+    input.focus();
   }
 
   voiceLangButton.addEventListener("click", () => {
