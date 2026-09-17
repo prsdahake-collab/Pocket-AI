@@ -764,6 +764,8 @@
 
   let currentTtsAudio = null;
   let currentTtsButton = null;
+  let ttsPending = false;
+  let ttsGeneration = 0;
   let autoVoiceReply = true;
 
   function speechPlainText(text) {
@@ -789,6 +791,11 @@
   }
 
   function stopVoiceReply() {
+    // Invalidate every in-flight TTS request so a delayed response cannot start
+    // playing after the user has already stopped it.
+    ttsGeneration++;
+    ttsPending = false;
+
     if (currentTtsAudio) {
       try { currentTtsAudio.pause(); } catch (_) {}
       try { currentTtsAudio.currentTime = 0; } catch (_) {}
@@ -805,11 +812,22 @@
     const speech = speechPlainText(text).slice(0, 2950);
     if (!speech) return false;
 
-    if (currentTtsAudio || ("speechSynthesis" in window && window.speechSynthesis.speaking)) {
+    // Tapping the SAME waveform again is a true toggle: stop and do not queue
+    // another voice request. This also handles rapid taps while TTS is loading.
+    if (currentTtsButton === button && (ttsPending || currentTtsAudio ||
+        ("speechSynthesis" in window && window.speechSynthesis.speaking))) {
       stopVoiceReply();
-      if (button && currentTtsButton === null) return true;
+      return false;
     }
 
+    // If another answer is speaking/loading, stop it before starting this one.
+    if (ttsPending || currentTtsAudio ||
+        ("speechSynthesis" in window && window.speechSynthesis.speaking)) {
+      stopVoiceReply();
+    }
+
+    const requestId = ++ttsGeneration;
+    ttsPending = true;
     currentTtsButton = button;
     setSpeakButtonState(button, true);
 
@@ -820,17 +838,24 @@
         output_format: "mp3"
       });
 
+      // The request was cancelled or superseded while it was loading.
+      if (requestId !== ttsGeneration) {
+        try { audio.pause(); } catch (_) {}
+        return false;
+      }
+
+      ttsPending = false;
       currentTtsAudio = audio;
       audio.onended = () => {
         if (currentTtsAudio === audio) currentTtsAudio = null;
-        if (currentTtsButton === button) {
+        if (currentTtsButton === button && requestId === ttsGeneration) {
           setSpeakButtonState(button, false);
           currentTtsButton = null;
         }
       };
       audio.onerror = () => {
         if (currentTtsAudio === audio) currentTtsAudio = null;
-        if (currentTtsButton === button) {
+        if (currentTtsButton === button && requestId === ttsGeneration) {
           setSpeakButtonState(button, false);
           currentTtsButton = null;
         }
@@ -839,6 +864,8 @@
       await audio.play();
       return true;
     } catch (error) {
+      if (requestId !== ttsGeneration) return false;
+      ttsPending = false;
       console.warn("Limitra AI Puter voice reply failed:", error);
       if (currentTtsAudio) currentTtsAudio = null;
 
@@ -853,13 +880,13 @@
           utterance.rate = 1.06;
           utterance.pitch = 0.62;
           utterance.onend = () => {
-            if (currentTtsButton === button) {
+            if (currentTtsButton === button && requestId === ttsGeneration) {
               setSpeakButtonState(button, false);
               currentTtsButton = null;
             }
           };
           utterance.onerror = () => {
-            if (currentTtsButton === button) {
+            if (currentTtsButton === button && requestId === ttsGeneration) {
               setSpeakButtonState(button, false);
               currentTtsButton = null;
             }
@@ -869,8 +896,10 @@
         } catch (_) {}
       }
 
-      setSpeakButtonState(button, false);
-      currentTtsButton = null;
+      if (requestId === ttsGeneration) {
+        setSpeakButtonState(button, false);
+        currentTtsButton = null;
+      }
       return false;
     }
   }
