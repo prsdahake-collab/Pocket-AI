@@ -1057,49 +1057,84 @@
     ].filter(Boolean).join("\n");
   }
 
+  async function waitForPuter(timeoutMs = 12000) {
+    const started = Date.now();
+    while (!window.puter) {
+      if (Date.now() - started > timeoutMs) {
+        throw new Error("Puter AI did not load. Please refresh the page.");
+      }
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+    return window.puter;
+  }
+
+  async function callPuterChat(chatPrompt, model, timeoutMs = 30000) {
+    const puterApi = await waitForPuter();
+    const request = puterApi.ai.chat(chatPrompt, {
+      model,
+      normalize: true
+    });
+
+    return await Promise.race([
+      request,
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error(model + " timed out")), timeoutMs)
+      )
+    ]);
+  }
+
+  function extractChatAnswer(response) {
+    if (typeof response === "string") return response.trim();
+
+    if (response?.message) {
+      const content = response.message.content;
+
+      if (typeof content === "string") return content.trim();
+
+      if (Array.isArray(content)) {
+        return content
+          .map(item => {
+            if (typeof item === "string") return item;
+            return item?.text || item?.content || "";
+          })
+          .join("")
+          .trim();
+      }
+    }
+
+    if (typeof response?.text === "string") return response.text.trim();
+
+    return "";
+  }
+
   async function sendChatMessage(prompt) {
     addMessage("user", prompt);
     addTyping();
 
     try {
       const chatPrompt = buildConversationPrompt(prompt);
+      let response = null;
+      let lastError = null;
 
-      // Use Puter's documented single-prompt chat form. This avoids
-      // the hanging multi-message request while keeping the same model.
-      const request = puter.ai.chat(chatPrompt, {
-        model: "gpt-5.6-luna",
-        normalize: true
-      });
-
-      const response = await Promise.race([
-        request,
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("AI response timed out")), 45000)
-        )
-      ]);
-
-      removeTyping();
-
-      let answer = "";
-
-      if (typeof response === "string") {
-        answer = response;
-      } else if (response && response.message) {
-        if (typeof response.message.content === "string") {
-          answer = response.message.content;
-        } else if (Array.isArray(response.message.content)) {
-          answer = response.message.content
-            .map(x => typeof x === "string" ? x : (x?.text || ""))
-            .join("");
+      // Try the requested smart model first. If it is temporarily unavailable,
+      // automatically fall back to Puter's default fast model instead of leaving
+      // the chat blank.
+      for (const model of ["gpt-5.6-luna", "gpt-5-nano"]) {
+        try {
+          response = await callPuterChat(chatPrompt, model, 30000);
+          if (extractChatAnswer(response)) break;
+        } catch (error) {
+          lastError = error;
+          console.warn("Limitra AI model failed:", model, error);
         }
       }
 
-      if (!answer && response?.text) {
-        answer = String(response.text);
-      }
+      removeTyping();
+
+      const answer = extractChatAnswer(response);
 
       if (!answer) {
-        answer = "I couldn't generate a response. Please try again.";
+        throw lastError || new Error("AI returned an empty response");
       }
 
       const answerBubble = addMessage("bot", answer);
@@ -1115,9 +1150,13 @@
     } catch (error) {
       removeTyping();
 
+      const safeMessage =
+        error?.message || "The AI service is temporarily unavailable.";
+
       addMessage(
         "bot",
-        "Sorry, I couldn't get a response right now. Please try again."
+        "Sorry, I couldn't get a response right now. Please try again.\n\n" +
+        "Details: " + safeMessage
       );
 
       console.error("Limitra AI chat error:", error);
